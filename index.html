@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tableau de Bord - Allocation Billetterie</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>📊 Tableau de Bord - Allocation Billetterie</h1>
+            <div class="header-actions">
+                <button id="refreshBtn" class="btn-refresh">🔄 Actualiser</button>
+                <span id="lastUpdate" class="last-update"></span>
+            </div>
+        </header>
+
+        <div class="filters">
+            <div class="filter-group">
+                <label for="filterVille">Ville:</label>
+                <select id="filterVille">
+                    <option value="">Toutes les villes</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="filterDateStart">Date début:</label>
+                <input type="date" id="filterDateStart" class="date-input">
+            </div>
+            <div class="filter-group">
+                <label for="filterDateEnd">Date fin:</label>
+                <input type="date" id="filterDateEnd" class="date-input">
+            </div>
+            <div class="filter-group">
+                <button id="btnReset" class="btn-reset">🔄 Réinitialiser</button>
+            </div>
+        </div>
+
+        <div id="loading" class="loading">
+            <div class="spinner"></div>
+            <p>Chargement des données depuis Airtable...</p>
+        </div>
+
+        <div id="error" class="error" style="display: none;">
+            <p>⚠️ Erreur de chargement des données. Veuillez vérifier votre configuration Airtable.</p>
+        </div>
+
+        <div class="table-container" id="tableContainer" style="display: none;">
+            <table id="dataTable">
+                <thead>
+                    <tr id="headerRow1" class="header-level-1">
+                        <th rowspan="3" class="th-main th-sticky">Date</th>
+                        <th rowspan="3" class="th-main th-sticky">Ville</th>
+                        <th colspan="9" class="th-category th-or">Catégorie Or</th>
+                        <th colspan="9" class="th-category th-platinium">Catégorie Platinium</th>
+                        <th colspan="9" class="th-category th-argent">Catégorie Argent</th>
+                        <th colspan="9" class="th-category th-total">TOTAL</th>
+                        <th rowspan="3" class="th-main th-remplissage">Taux de remplissage</th>
+                    </tr>
+                    <tr id="headerRow2" class="header-level-2">
+                        <th colspan="2" class="th-sub th-or">Fever</th>
+                        <th colspan="2" class="th-sub th-or">Regiondo</th>
+                        <th colspan="2" class="th-sub th-or">OT</th>
+                        <th colspan="2" class="th-sub th-or">Total</th>
+                        <th rowspan="2" class="th-sub th-or th-delta">Delta</th>
+                        <th colspan="2" class="th-sub th-platinium">Fever</th>
+                        <th colspan="2" class="th-sub th-platinium">Regiondo</th>
+                        <th colspan="2" class="th-sub th-platinium">OT</th>
+                        <th colspan="2" class="th-sub th-platinium">Total</th>
+                        <th rowspan="2" class="th-sub th-platinium th-delta">Delta</th>
+                        <th colspan="2" class="th-sub th-argent">Fever</th>
+                        <th colspan="2" class="th-sub th-argent">Regiondo</th>
+                        <th colspan="2" class="th-sub th-argent">OT</th>
+                        <th colspan="2" class="th-sub th-argent">Total</th>
+                        <th rowspan="2" class="th-sub th-argent th-delta">Delta</th>
+                        <th colspan="2" class="th-sub th-total">Fever</th>
+                        <th colspan="2" class="th-sub th-total">Regiondo</th>
+                        <th colspan="2" class="th-sub th-total">OT</th>
+                        <th colspan="2" class="th-sub th-total">Total</th>
+                        <th rowspan="2" class="th-sub th-total th-delta">Delta</th>
+                    </tr>
+                    <tr id="headerRow3" class="header-level-3">
+                        <th class="th-col th-or">Ventes</th>
+                        <th class="th-col th-or">Quota</th>
+                        <th class="th-col th-or">Ventes</th>
+                        <th class="th-col th-or">Quota</th>
+                        <th class="th-col th-or">Ventes</th>
+                        <th class="th-col th-or">Quota</th>
+                        <th class="th-col th-or">Ventes</th>
+                        <th class="th-col th-or">Quota</th>
+                        <th class="th-col th-platinium">Ventes</th>
+                        <th class="th-col th-platinium">Quota</th>
+                        <th class="th-col th-platinium">Ventes</th>
+                        <th class="th-col th-platinium">Quota</th>
+                        <th class="th-col th-platinium">Ventes</th>
+                        <th class="th-col th-platinium">Quota</th>
+                        <th class="th-col th-platinium">Ventes</th>
+                        <th class="th-col th-platinium">Quota</th>
+                        <th class="th-col th-argent">Ventes</th>
+                        <th class="th-col th-argent">Quota</th>
+                        <th class="th-col th-argent">Ventes</th>
+                        <th class="th-col th-argent">Quota</th>
+                        <th class="th-col th-argent">Ventes</th>
+                        <th class="th-col th-argent">Quota</th>
+                        <th class="th-col th-argent">Ventes</th>
+                        <th class="th-col th-argent">Quota</th>
+                        <th class="th-col th-total">Ventes</th>
+                        <th class="th-col th-total">%</th>
+                        <th class="th-col th-total">Ventes</th>
+                        <th class="th-col th-total">%</th>
+                        <th class="th-col th-total">Ventes</th>
+                        <th class="th-col th-total">%</th>
+                        <th class="th-col th-total">Ventes</th>
+                        <th class="th-col th-total">Quota</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
+
+        <script src="config.js"></script>
+        <script src="app.js"></script>
+</body>
+
+</html>
