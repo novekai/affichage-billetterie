@@ -50,6 +50,14 @@ class AirtableDashboard {
     async loadHistory() {
         const btn = document.getElementById('loadHistoryBtn');
         const status = document.getElementById('historyStatus');
+        const dateInput = document.getElementById('historyDate');
+        const selectedDate = dateInput.value;
+
+        if (!selectedDate) {
+            status.textContent = 'Veuillez sélectionner une date.';
+            status.style.color = '#ef4444';
+            return;
+        }
 
         btn.disabled = true;
         btn.textContent = 'Chargement...';
@@ -57,8 +65,8 @@ class AirtableDashboard {
         status.className = 'status-msg';
 
         try {
-            // Call our proxy server to avoid CORS
-            const response = await fetch('/api/history');
+            // Call our proxy server with the selected date
+            const response = await fetch(`/api/history?date=${selectedDate}`);
 
             if (!response.ok) throw new Error('Erreur récupération historique');
 

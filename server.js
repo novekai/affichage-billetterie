@@ -107,7 +107,13 @@ const COLUMNS_ORDER = [
 // Proxy for History Webhook (to avoid CORS)
 app.get('/api/history', async (req, res) => {
     try {
-        const webhookUrl = 'https://n8n.srv1189694.hstgr.cloud/webhook/gestion-billetterie-backup';
+        const date = req.query.date;
+        let webhookUrl = 'https://n8n.srv1189694.hstgr.cloud/webhook/gestion-billetterie-backup';
+
+        if (date) {
+            webhookUrl += `?date=${date}`;
+        }
+
         const response = await fetch(webhookUrl);
 
         if (!response.ok) {

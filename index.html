@@ -55,8 +55,12 @@
 
                 <div class="sidebar-section">
                     <h4>Récupérer une version</h4>
-                    <p class="sidebar-info">Restaurer les données depuis une sauvegarde précédente.</p>
-                    <button id="loadHistoryBtn" class="btn-action btn-load">📥 Charger l'historique</button>
+                    <p class="sidebar-info">Choisissez une date pour restaurer l'affichage correspondant.</p>
+                    <div class="sidebar-input-group">
+                        <label for="historyDate">Date de l'instantané :</label>
+                        <input type="date" id="historyDate" class="sidebar-input">
+                    </div>
+                    <button id="loadHistoryBtn" class="btn-action btn-load">📥 Récupérer l'affichage</button>
                     <div id="historyStatus" class="status-msg"></div>
                 </div>
             </div>
