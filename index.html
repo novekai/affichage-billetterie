@@ -11,13 +11,15 @@
 
 <body>
     <div class="container">
-        <header class="header">
-            <h1>📊 Tableau de Bord - Allocation Billetterie</h1>
-            <div class="header-actions">
-                <button id="refreshBtn" class="btn-refresh">🔄 Actualiser</button>
-                <span id="lastUpdate" class="last-update"></span>
+        <div class="header">
+            <div class="header-left">
+                <h1>📊 Tableau de Bord - Allocation Billetterie</h1>
             </div>
-        </header>
+            <div class="header-actions">
+                <span id="lastUpdate" class="last-update"></span>
+                <button id="toggleHistoryBtn" class="btn-history">📂 Historique</button>
+            </div>
+        </div>
 
         <div class="filters">
             <div class="filter-group">
@@ -34,10 +36,32 @@
                 <label for="filterDateEnd">Date fin:</label>
                 <input type="date" id="filterDateEnd" class="date-input">
             </div>
-            <div class="filter-group">
-                <button id="btnReset" class="btn-reset">🔄 Réinitialiser</button>
+            <button id="btnReset" class="btn-reset-icon" title="Réinitialiser les filtres">↺</button>
+        </div>
+
+        <div id="historySidebar" class="sidebar">
+            <div class="sidebar-header">
+                <h3>Historique & Sauvegardes</h3>
+                <button id="closeSidebarBtn" class="close-btn">&times;</button>
+            </div>
+            <div class="sidebar-content">
+                <div class="sidebar-section">
+                    <h4>Sauvegarder l'état actuel</h4>
+                    <button id="saveSnapshotBtn" class="btn-action btn-save">💾 Enregistrer maintenant</button>
+                    <p class="sidebar-info">Crée un instantané des données actuelles dans Airtable.</p>
+                </div>
+
+                <div class="sidebar-separator"></div>
+
+                <div class="sidebar-section">
+                    <h4>Récupérer une version</h4>
+                    <p class="sidebar-info">Restaurer les données depuis une sauvegarde précédente.</p>
+                    <button id="loadHistoryBtn" class="btn-action btn-load">📥 Charger l'historique</button>
+                    <div id="historyStatus" class="status-msg"></div>
+                </div>
             </div>
         </div>
+        <div id="sidebarOverlay" class="sidebar-overlay"></div>
 
         <div id="loading" class="loading">
             <div class="spinner"></div>

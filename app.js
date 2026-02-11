@@ -8,14 +8,98 @@ class AirtableDashboard {
     async init() {
         this.bindEvents();
         await this.loadData();
+
+        // Auto-refresh every 10 seconds (silent mode)
+        setInterval(() => this.loadData(true), 10000);
     }
 
     bindEvents() {
-        document.getElementById('refreshBtn').addEventListener('click', () => this.loadData());
+        // Sidebar controls
+        document.getElementById('toggleHistoryBtn').addEventListener('click', () => this.toggleSidebar(true));
+        document.getElementById('closeSidebarBtn').addEventListener('click', () => this.toggleSidebar(false));
+        document.getElementById('sidebarOverlay').addEventListener('click', () => this.toggleSidebar(false));
+
+        // History actions
+        document.getElementById('saveSnapshotBtn').addEventListener('click', () => this.saveSnapshot());
+        document.getElementById('loadHistoryBtn').addEventListener('click', () => this.loadHistory());
+
         document.getElementById('filterVille').addEventListener('change', () => this.applyFilters());
         document.getElementById('filterDateStart').addEventListener('change', () => this.applyFilters());
         document.getElementById('filterDateEnd').addEventListener('change', () => this.applyFilters());
         document.getElementById('btnReset').addEventListener('click', () => this.resetFilters());
+    }
+
+    toggleSidebar(open) {
+        const sidebar = document.getElementById('historySidebar');
+        const overlay = document.getElementById('sidebarOverlay');
+        if (open) {
+            sidebar.classList.add('open');
+            overlay.classList.add('open');
+        } else {
+            sidebar.classList.remove('open');
+            overlay.classList.remove('open');
+        }
+    }
+
+    async saveSnapshot() {
+        // Placeholder for now
+        alert('Fonctionnalité "Enregistrer" en attente de configuration Airtable.');
+        console.log('Save snapshot requested');
+    }
+
+    async loadHistory() {
+        const btn = document.getElementById('loadHistoryBtn');
+        const status = document.getElementById('historyStatus');
+
+        btn.disabled = true;
+        btn.textContent = 'Chargement...';
+        status.textContent = '';
+        status.className = 'status-msg';
+
+        try {
+            // Call our proxy server to avoid CORS
+            const response = await fetch('/api/history');
+
+            if (!response.ok) throw new Error('Erreur récupération historique');
+
+            const historyData = await response.json();
+
+            if (!historyData || historyData.length === 0) {
+                status.textContent = 'Aucune donnée d\'historique trouvée.';
+                status.style.color = '#eab308';
+                return;
+            }
+
+            // Transform data if needed, assuming structure is compatible or needs mapping
+            // For now, let's assume the webhook returns records in a similar format or we adapt
+            // If the webhook returns exactly what we need, great. If not, we might need a transformer.
+            // Let's assume it returns a list of records like Airtable
+
+            // NOTE: Adjust this based on actual webhook response structure
+            let records = historyData;
+            if (historyData.records) records = historyData.records;
+
+            // Update data
+            this.data = this.transformData(records);
+            this.filteredData = [...this.data];
+            this.applyFilters(); // Re-apply current filters
+            this.renderTableBody();
+            this.updateLastUpdate(); // Update time
+
+            status.textContent = 'Historique chargé avec succès !';
+            status.style.color = '#10b981';
+
+            // Close sidebar after short delay?
+            // setTimeout(() => this.toggleSidebar(false), 1500);
+
+        } catch (error) {
+            console.error('History load error:', error);
+            status.textContent = 'Erreur lors du chargement de l\'historique.';
+            status.style.color = '#ef4444';
+        } finally {
+            btn.disabled = false;
+            btn.textContent = '📥 Charger l\'historique';
+        }
     }
 
     resetFilters() {
@@ -122,32 +206,32 @@ class AirtableDashboard {
             tr.appendChild(this.createCell(row['Date'] || '-', 'td-date td-sticky'));
             tr.appendChild(this.createCell(row['Ville'] || '-', 'td-ville td-sticky td-sticky-ville'));
 
-            tr.appendChild(this.createCell(this.formatNumber(row['Ventes - Fever - Or']), 'td-or'));
-            tr.appendChild(this.createCell(this.formatNumber(row['Quota - Fever - Or']), 'td-or td-quota'));
-            tr.appendChild(this.createCell(this.formatNumber(row['Ventes - Regiondo - Or']), 'td-or'));
-            tr.appendChild(this.createCell(this.formatNumber(row['Quota - Regiondo - Or']), 'td-or td-quota'));
-            tr.appendChild(this.createCell(this.formatNumber(row['Ventes - OT - Or']), 'td-or'));
-            tr.appendChild(this.createCell(this.formatNumber(row['Quota - OT - Or']), 'td-or td-quota'));
+            tr.appendChild(this.createEditableCell(row['Ventes - Fever - Or'], 'Ventes - Fever - Or', row.id, 'td-or'));
+            tr.appendChild(this.createEditableCell(row['Quota - Fever - Or'], 'Quota - Fever - Or', row.id, 'td-or td-quota'));
+            tr.appendChild(this.createEditableCell(row['Ventes - Regiondo - Or'], 'Ventes - Regiondo - Or', row.id, 'td-or'));
+            tr.appendChild(this.createEditableCell(row['Quota - Regiondo - Or'], 'Quota - Regiondo - Or', row.id, 'td-or td-quota'));
+            tr.appendChild(this.createEditableCell(row['Ventes - OT - Or'], 'Ventes - OT - Or', row.id, 'td-or'));
+            tr.appendChild(this.createEditableCell(row['Quota - OT - Or'], 'Quota - OT - Or', row.id, 'td-or td-quota'));
             tr.appendChild(this.createCell(this.formatNumber(row['Total - Ventes - Or']), 'td-or td-total'));
             tr.appendChild(this.createCell(this.formatNumber(row['Total - Quota - Or']), 'td-or td-quota'));
             tr.appendChild(this.createDeltaCell(row['Delta - Or'], row['Total - Ventes - Or'], row['Total - Quota - Or'], 'td-or'));
 
-            tr.appendChild(this.createCell(this.formatNumber(row['Ventes - Fever - Platinium']), 'td-platinium'));
-            tr.appendChild(this.createCell(this.formatNumber(row['Quota - Fever - Platinium']), 'td-platinium td-quota'));
-            tr.appendChild(this.createCell(this.formatNumber(row['Ventes - Regiondo - Platinium']), 'td-platinium'));
-            tr.appendChild(this.createCell(this.formatNumber(row['Quota - Regiondo - Platinium']), 'td-platinium td-quota'));
-            tr.appendChild(this.createCell(this.formatNumber(row['Ventes - OT - Platinium']), 'td-platinium'));
-            tr.appendChild(this.createCell(this.formatNumber(row['Quota - OT - Platinium']), 'td-platinium td-quota'));
+            tr.appendChild(this.createEditableCell(row['Ventes - Fever - Platinium'], 'Ventes - Fever - Platinium', row.id, 'td-platinium'));
+            tr.appendChild(this.createEditableCell(row['Quota - Fever - Platinium'], 'Quota - Fever - Platinium', row.id, 'td-platinium td-quota'));
+            tr.appendChild(this.createEditableCell(row['Ventes - Regiondo - Platinium'], 'Ventes - Regiondo - Platinium', row.id, 'td-platinium'));
+            tr.appendChild(this.createEditableCell(row['Quota - Regiondo - Platinium'], 'Quota - Regiondo - Platinium', row.id, 'td-platinium td-quota'));
+            tr.appendChild(this.createEditableCell(row['Ventes - OT - Platinium'], 'Ventes - OT - Platinium', row.id, 'td-platinium'));
+            tr.appendChild(this.createEditableCell(row['Quota - OT - Platinium'], 'Quota - OT - Platinium', row.id, 'td-platinium td-quota'));
             tr.appendChild(this.createCell(this.formatNumber(row['Total - Ventes - Platinium']), 'td-platinium td-total'));
             tr.appendChild(this.createCell(this.formatNumber(row['Total - Quota - Platinium']), 'td-platinium td-quota'));
             tr.appendChild(this.createDeltaCell(row['Delta - Platinium'], row['Total - Ventes - Platinium'], row['Total - Quota - Platinium'], 'td-platinium'));
 
-            tr.appendChild(this.createCell(this.formatNumber(row['Ventes - Fever - Argent']), 'td-argent'));
-            tr.appendChild(this.createCell(this.formatNumber(row['Quota - Fever - Argent']), 'td-argent td-quota'));
-            tr.appendChild(this.createCell(this.formatNumber(row['Ventes - Regiondo - Argent']), 'td-argent'));
-            tr.appendChild(this.createCell(this.formatNumber(row['Quota - Regiondo - Argent']), 'td-argent td-quota'));
-            tr.appendChild(this.createCell(this.formatNumber(row['Ventes - OT - Argent']), 'td-argent'));
-            tr.appendChild(this.createCell(this.formatNumber(row['Quota - OT - Argent']), 'td-argent td-quota'));
+            tr.appendChild(this.createEditableCell(row['Ventes - Fever - Argent'], 'Ventes - Fever - Argent', row.id, 'td-argent'));
+            tr.appendChild(this.createEditableCell(row['Quota - Fever - Argent'], 'Quota - Fever - Argent', row.id, 'td-argent td-quota'));
+            tr.appendChild(this.createEditableCell(row['Ventes - Regiondo - Argent'], 'Ventes - Regiondo - Argent', row.id, 'td-argent'));
+            tr.appendChild(this.createEditableCell(row['Quota - Regiondo - Argent'], 'Quota - Regiondo - Argent', row.id, 'td-argent td-quota'));
+            tr.appendChild(this.createEditableCell(row['Ventes - OT - Argent'], 'Ventes - OT - Argent', row.id, 'td-argent'));
+            tr.appendChild(this.createEditableCell(row['Quota - OT - Argent'], 'Quota - OT - Argent', row.id, 'td-argent td-quota'));
             tr.appendChild(this.createCell(this.formatNumber(row['Total - Ventes - Argent']), 'td-argent td-total'));
             tr.appendChild(this.createCell(this.formatNumber(row['Total - Quota - Argent']), 'td-argent td-quota'));
             tr.appendChild(this.createDeltaCell(row['Delta - Argent'], row['Total - Ventes - Argent'], row['Total - Quota - Argent'], 'td-argent'));
@@ -215,6 +299,116 @@ class AirtableDashboard {
         td.textContent = numValue.toFixed(0) + '%';
 
         return td;
+    }
+
+
+    createEditableCell(value, fieldName, recordId, baseClass = '') {
+        const td = document.createElement('td');
+        td.className = `td-editable ${baseClass}`;
+        td.textContent = this.formatNumber(value);
+        td.dataset.value = value; // Store raw value
+
+        td.addEventListener('dblclick', () => {
+            if (td.classList.contains('td-editing')) return;
+
+            const originalValue = td.dataset.value;
+            td.classList.add('td-editing');
+            td.textContent = '';
+
+            const input = document.createElement('input');
+            input.type = 'number';
+            input.value = originalValue !== undefined && originalValue !== null ? originalValue : '';
+            input.addEventListener('click', e => e.stopPropagation()); // Prevent bubbling
+
+            // Save on Enter, Cancel on Escape
+            input.addEventListener('keydown', async (e) => {
+                if (e.key === 'Enter') {
+                    const newValue = input.value;
+                    // Optimistic update
+                    td.classList.remove('td-editing');
+                    td.textContent = this.formatNumber(parseFloat(newValue));
+                    td.dataset.value = newValue;
+
+                    try {
+                        await this.updateAirtableField(recordId, fieldName, parseFloat(newValue));
+                        td.classList.add('td-saving');
+                        setTimeout(() => td.classList.remove('td-saving'), 1000);
+                        // Reload mostly to update totals/deltas
+                        await this.loadData();
+                    } catch (err) {
+                        console.error('Update failed', err);
+                        alert('Erreur lors de la sauvegarde');
+                        // Revert
+                        td.textContent = this.formatNumber(originalValue);
+                        td.dataset.value = originalValue;
+                    }
+                } else if (e.key === 'Escape') {
+                    td.classList.remove('td-editing');
+                    td.textContent = this.formatNumber(originalValue);
+                }
+            });
+
+            // Save on blur? Maybe risky if just clicking away. Let's stick to Enter for now or confirm on blur.
+            // Let's support blur as save for better UX.
+            input.addEventListener('blur', async () => {
+                // If we are still editing (didn't hit Enter/Escape which remove the class)
+                if (td.classList.contains('td-editing')) {
+                    const newValue = input.value;
+                    if (parseFloat(newValue) === parseFloat(originalValue) || (newValue === '' && !originalValue)) {
+                        td.classList.remove('td-editing');
+                        td.textContent = this.formatNumber(originalValue);
+                        return;
+                    }
+
+                    td.classList.remove('td-editing');
+                    if (newValue === '') {
+                        td.textContent = '-'; // or whatever formatNumber returns for null
+                    } else {
+                        td.textContent = this.formatNumber(parseFloat(newValue));
+                    }
+                    td.dataset.value = newValue;
+
+                    try {
+                        await this.updateAirtableField(recordId, fieldName, newValue === '' ? null : parseFloat(newValue));
+                        td.classList.add('td-saving');
+                        setTimeout(() => td.classList.remove('td-saving'), 1000);
+                        await this.loadData();
+                    } catch (err) {
+                        console.error('Update failed', err);
+                        alert('Erreur lors de la sauvegarde');
+                        td.textContent = this.formatNumber(originalValue);
+                        td.dataset.value = originalValue;
+                    }
+                }
+            });
+
+            td.appendChild(input);
+            input.focus();
+        });
+
+        return td;
+    }
+
+    async updateAirtableField(recordId, fieldName, value) {
+        const url = `https://api.airtable.com/v0/${AIRTABLE_CONFIG.BASE_ID}/${encodeURIComponent(AIRTABLE_CONFIG.TABLE_NAME)}/${recordId}`;
+
+        const response = await fetch(url, {
+            method: 'PATCH',
+            headers: {
+                'Authorization': `Bearer ${AIRTABLE_CONFIG.API_KEY}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                fields: {
+                    [fieldName]: value
+                }
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`Erreur Update Airtable: ${response.status}`);
+        }
+        return await response.json();
     }
 
     createTauxRemplissageCell(value) {

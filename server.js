@@ -104,6 +104,24 @@ const COLUMNS_ORDER = [
     res.send(config);
 });
 
+// Proxy for History Webhook (to avoid CORS)
+app.get('/api/history', async (req, res) => {
+    try {
+        const webhookUrl = 'https://n8n.srv1189694.hstgr.cloud/webhook/gestion-billetterie-backup';
+        const response = await fetch(webhookUrl);
+
+        if (!response.ok) {
+            throw new Error(`Webhook error: ${response.status}`);
+        }
+
+        const data = await response.json();
+        res.json(data);
+    } catch (error) {
+        console.error('Proxy error:', error);
+        res.status(500).json({ error: 'Failed to fetch history' });
+    }
+});
+
 app.use(express.static(path.join(__dirname)));
 
 app.listen(PORT, function () {
