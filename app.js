@@ -91,11 +91,23 @@ class AirtableDashboard {
             });
 
             this.renderRecentSnapshots();
-            alert(`Instantané enregistré avec succès ! (${timestamp})`);
+
+            // Show success in sidebar
+            const status = document.getElementById('historyStatus');
+            if (status) {
+                status.textContent = `✅ Instantané enregistré (${timestamp})`;
+                status.style.color = '#10b981';
+                status.className = 'status-msg';
+            }
 
         } catch (error) {
             console.error('Save snapshot error:', error);
-            alert('Erreur lors de l\'enregistrement de l\'instantané.');
+            const status = document.getElementById('historyStatus');
+            if (status) {
+                status.textContent = '❌ Erreur lors de l\'enregistrement';
+                status.style.color = '#ef4444';
+                status.className = 'status-msg';
+            }
         } finally {
             btn.disabled = false;
             btn.textContent = '💾 Enregistrer l\'instant T';
