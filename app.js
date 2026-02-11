@@ -2,6 +2,7 @@ class AirtableDashboard {
     constructor() {
         this.data = [];
         this.filteredData = [];
+        this.isEditing = false;
         this.init();
     }
 
@@ -9,9 +10,13 @@ class AirtableDashboard {
         this.bindEvents();
         await this.loadData();
 
-        // Auto-refresh every 30 seconds (silent mode)
+        // Auto-refresh every 30 seconds (silent mode), only if not editing
         if (this.refreshInterval) clearInterval(this.refreshInterval);
-        this.refreshInterval = setInterval(() => this.loadData(true), 30000);
+        this.refreshInterval = setInterval(() => {
+            if (!this.isEditing) {
+                this.loadData(true);
+            }
+        }, 30000);
 
         // Session history storage
         this.sessionHistory = [];
@@ -207,7 +212,9 @@ class AirtableDashboard {
     }
 
     async fetchAirtableData() {
-        const url = `https://api.airtable.com/v0/${AIRTABLE_CONFIG.BASE_ID}/${encodeURIComponent(AIRTABLE_CONFIG.TABLE_NAME)}`;
+        // Add cache-buster to ensure we don't get stale browser cache
+        const cacheBuster = `?t=${Date.now()}`;
+        const url = `https://api.airtable.com/v0/${AIRTABLE_CONFIG.BASE_ID}/${encodeURIComponent(AIRTABLE_CONFIG.TABLE_NAME)}${cacheBuster}`;
 
         const response = await fetch(url, {
             headers: {
@@ -385,58 +392,39 @@ class AirtableDashboard {
         td.addEventListener('dblclick', () => {
             if (td.classList.contains('td-editing')) return;
 
+            this.isEditing = true;
             const originalValue = td.dataset.value;
             td.classList.add('td-editing');
-            td.textContent = '';
+            td.innerHTML = '';
 
             const input = document.createElement('input');
             input.type = 'number';
-            input.value = originalValue !== undefined && originalValue !== null ? originalValue : '';
+            input.className = 'edit-input';
+            input.value = originalValue;
             input.addEventListener('click', e => e.stopPropagation()); // Prevent bubbling
+
+            const finishEdit = () => {
+                this.isEditing = false;
+                td.classList.remove('td-editing');
+                td.textContent = this.formatNumber(originalValue);
+            };
 
             // Save on Enter, Cancel on Escape
             input.addEventListener('keydown', async (e) => {
+                if (e.key === 'Escape') {
+                    finishEdit();
+                }
                 if (e.key === 'Enter') {
                     const newValue = input.value;
-                    // Optimistic update
-                    td.classList.remove('td-editing');
-                    td.textContent = this.formatNumber(parseFloat(newValue));
-                    td.dataset.value = newValue;
-
-                    try {
-                        await this.updateAirtableField(recordId, fieldName, parseFloat(newValue));
-                        td.classList.add('td-saving');
-                        setTimeout(() => td.classList.remove('td-saving'), 1000);
-                        // Reload mostly to update totals/deltas
-                        await this.loadData();
-                    } catch (err) {
-                        console.error('Update failed', err);
-                        alert('Erreur lors de la sauvegarde');
-                        // Revert
-                        td.textContent = this.formatNumber(originalValue);
-                        td.dataset.value = originalValue;
-                    }
-                } else if (e.key === 'Escape') {
-                    td.classList.remove('td-editing');
-                    td.textContent = this.formatNumber(originalValue);
-                }
-            });
-
-            // Save on blur? Maybe risky if just clicking away. Let's stick to Enter for now or confirm on blur.
-            // Let's support blur as save for better UX.
-            input.addEventListener('blur', async () => {
-                // If we are still editing (didn't hit Enter/Escape which remove the class)
-                if (td.classList.contains('td-editing')) {
-                    const newValue = input.value;
                     if (parseFloat(newValue) === parseFloat(originalValue) || (newValue === '' && !originalValue)) {
-                        td.classList.remove('td-editing');
-                        td.textContent = this.formatNumber(originalValue);
+                        finishEdit();
                         return;
                     }
 
+                    this.isEditing = false;
                     td.classList.remove('td-editing');
                     if (newValue === '') {
-                        td.textContent = '-'; // or whatever formatNumber returns for null
+                        td.textContent = '-';
                     } else {
                         td.textContent = this.formatNumber(parseFloat(newValue));
                     }
@@ -446,13 +434,20 @@ class AirtableDashboard {
                         await this.updateAirtableField(recordId, fieldName, newValue === '' ? null : parseFloat(newValue));
                         td.classList.add('td-saving');
                         setTimeout(() => td.classList.remove('td-saving'), 1000);
-                        await this.loadData();
+                        await this.loadData(true); // Silent reload to get calculated fields
                     } catch (err) {
                         console.error('Update failed', err);
-                        alert('Erreur lors de la sauvegarde');
+                        alert(`Erreur : ${err.message}`);
                         td.textContent = this.formatNumber(originalValue);
                         td.dataset.value = originalValue;
                     }
+                }
+            });
+
+            input.addEventListener('blur', () => {
+                // If not already finished by Enter/Escape
+                if (td.classList.contains('td-editing')) {
+                    finishEdit();
                 }
             });
 
@@ -464,6 +459,8 @@ class AirtableDashboard {
     }
 
     async updateAirtableField(recordId, fieldName, value) {
+        console.log(`[Proxy Update] Attempting: Record=${recordId}, Field="${fieldName}", Value=${value}`);
+
         const response = await fetch('/api/update-record', {
             method: 'PATCH',
             headers: {
@@ -476,12 +473,15 @@ class AirtableDashboard {
             })
         });
 
+        const responseData = await response.json().catch(() => ({}));
+
         if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            console.error('Update proxy error:', errorData);
-            throw new Error(errorData.error || `Erreur Update (${response.status})`);
+            console.error('[Proxy Update] Failure:', responseData);
+            throw new Error(responseData.error || `Erreur Update (${response.status})`);
         }
-        return await response.json();
+
+        console.log('[Proxy Update] Success:', responseData);
+        return responseData;
     }
 
     createTauxRemplissageCell(value) {
