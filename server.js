@@ -171,6 +171,51 @@ app.post('/api/save-snapshot', async (req, res) => {
     }
 });
 
+// Proxy for Updating Airtable Record
+app.patch('/api/update-record', async (req, res) => {
+    try {
+        const { recordId, fieldName, value } = req.body;
+        const apiKey = process.env.AIRTABLE_API_KEY || '';
+        const baseId = process.env.AIRTABLE_BASE_ID || '';
+        const tableName = process.env.AIRTABLE_TABLE_NAME || 'Allocation billetterie';
+
+        if (!apiKey || !baseId) {
+            return res.status(500).json({ error: 'Server configuration missing API Key or Base ID' });
+        }
+
+        const url = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}/${recordId}`;
+
+        const response = await fetch(url, {
+            method: 'PATCH',
+            headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                fields: {
+                    [fieldName]: value
+                }
+            })
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`Airtable PATCH error (${response.status}):`, errorText);
+            return res.status(response.status).json({
+                error: 'Airtable update error',
+                status: response.status,
+                details: errorText
+            });
+        }
+
+        const result = await response.json();
+        res.json(result);
+    } catch (error) {
+        console.error('Update record proxy error:', error);
+        res.status(500).json({ error: error.message || 'Internal Server Error' });
+    }
+});
+
 app.use(express.static(path.join(__dirname)));
 
 app.listen(PORT, function () {

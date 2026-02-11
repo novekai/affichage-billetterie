@@ -464,23 +464,22 @@ class AirtableDashboard {
     }
 
     async updateAirtableField(recordId, fieldName, value) {
-        const url = `https://api.airtable.com/v0/${AIRTABLE_CONFIG.BASE_ID}/${encodeURIComponent(AIRTABLE_CONFIG.TABLE_NAME)}/${recordId}`;
-
-        const response = await fetch(url, {
+        const response = await fetch('/api/update-record', {
             method: 'PATCH',
             headers: {
-                'Authorization': `Bearer ${AIRTABLE_CONFIG.API_KEY}`,
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                fields: {
-                    [fieldName]: value
-                }
+                recordId,
+                fieldName,
+                value
             })
         });
 
         if (!response.ok) {
-            throw new Error(`Erreur Update Airtable: ${response.status}`);
+            const errorData = await response.json().catch(() => ({}));
+            console.error('Update proxy error:', errorData);
+            throw new Error(errorData.error || `Erreur Update (${response.status})`);
         }
         return await response.json();
     }
