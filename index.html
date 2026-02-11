@@ -17,7 +17,6 @@
             </div>
             <div class="header-actions">
                 <span id="lastUpdate" class="last-update"></span>
-                <button id="manualRefreshBtn" class="btn-icon-refresh" title="Actualiser maintenant">🔄</button>
                 <button id="toggleHistoryBtn" class="btn-history">📂 Historique</button>
             </div>
         </div>
@@ -37,6 +36,7 @@
                 <label for="filterDateEnd">Au</label>
                 <input type="date" id="filterDateEnd" class="filter-input-centered">
             </div>
+            <button id="manualRefreshBtn" class="btn-refresh-filter" title="Actualiser les données">🔄</button>
             <button id="btnReset" class="btn-reset-icon" title="Réinitialiser les filtres">↺</button>
         </div>
 
@@ -54,7 +54,7 @@
                 <div class="sidebar-separator"></div>
 
                 <div class="sidebar-section">
-                    <h4>Récupération (Webhook)</h4>
+                    <h4>Récupération</h4>
                     <p class="sidebar-info">Restaurer les données pour une date ou un intervalle.</p>
                     <div class="sidebar-input-group">
                         <label>Date / Début :</label>

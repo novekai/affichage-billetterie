@@ -560,6 +560,7 @@ tbody td {
     background: rgba(255, 255, 255, 0.3);
 }
 
+.btn-refresh-filter,
 .btn-reset-icon {
     width: 36px;
     height: 36px;
@@ -577,10 +578,17 @@ tbody td {
     /* Align with inputs */
 }
 
+.btn-refresh-filter:hover,
 .btn-reset-icon:hover {
     background: #e2e8f0;
-    color: #1e293b;
-    transform: rotate(-180deg);
+    color: #2563eb;
+    transform: rotate(180deg);
+}
+
+.btn-refresh-filter {
+    background: #eff6ff;
+    border-color: #bfdbfe;
+    color: #2563eb;
 }
 
 .btn-action {
