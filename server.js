@@ -123,14 +123,20 @@ app.get('/api/history', async (req, res) => {
         const response = await fetch(webhookUrl);
 
         if (!response.ok) {
-            throw new Error(`Webhook error: ${response.status}`);
+            const errorText = await response.text();
+            console.error(`n8n GET error (${response.status}):`, errorText);
+            return res.status(response.status).json({
+                error: 'n8n history error',
+                status: response.status,
+                details: errorText
+            });
         }
 
         const data = await response.json();
         res.json(data);
     } catch (error) {
-        console.error('Proxy error:', error);
-        res.status(500).json({ error: 'Failed to fetch history' });
+        console.error('Proxy history error:', error);
+        res.status(500).json({ error: error.message || 'Failed to fetch history' });
     }
 });
 

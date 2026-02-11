@@ -141,7 +141,11 @@ class AirtableDashboard {
             if (dateEnd) url += `&endDate=${dateEnd}`;
 
             const response = await fetch(url);
-            if (!response.ok) throw new Error('Erreur récupération');
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                console.error('History server error:', errorData);
+                throw new Error(errorData.error || 'Erreur récupération');
+            }
 
             const historyData = await response.json();
 
@@ -167,7 +171,7 @@ class AirtableDashboard {
 
         } catch (error) {
             console.error('History load error:', error);
-            status.textContent = 'Erreur lors de la récupération.';
+            status.textContent = `❌ ${error.message}`;
             status.style.color = '#ef4444';
         } finally {
             btn.disabled = false;
