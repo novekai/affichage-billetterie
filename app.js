@@ -9,8 +9,13 @@ class AirtableDashboard {
         this.bindEvents();
         await this.loadData();
 
-        // Auto-refresh every 10 seconds (silent mode)
-        setInterval(() => this.loadData(true), 10000);
+        // Auto-refresh every 30 seconds (silent mode)
+        if (this.refreshInterval) clearInterval(this.refreshInterval);
+        this.refreshInterval = setInterval(() => this.loadData(true), 30000);
+
+        // Session history storage
+        this.sessionHistory = [];
+        window.dashboard = this; // Make accessible for mini-buttons
     }
 
     bindEvents() {
@@ -18,6 +23,15 @@ class AirtableDashboard {
         document.getElementById('toggleHistoryBtn').addEventListener('click', () => this.toggleSidebar(true));
         document.getElementById('closeSidebarBtn').addEventListener('click', () => this.toggleSidebar(false));
         document.getElementById('sidebarOverlay').addEventListener('click', () => this.toggleSidebar(false));
+
+        // Manual Refresh Icon
+        document.getElementById('manualRefreshBtn').addEventListener('click', () => {
+            const btn = document.getElementById('manualRefreshBtn');
+            btn.style.transition = 'transform 0.5s';
+            btn.style.transform = 'rotate(360deg)';
+            this.loadData();
+            setTimeout(() => btn.style.transform = 'rotate(0deg)', 500);
+        });
 
         // History actions
         document.getElementById('saveSnapshotBtn').addEventListener('click', () => this.saveSnapshot());
@@ -47,14 +61,15 @@ class AirtableDashboard {
         console.log('Save snapshot requested');
     }
 
-    async loadHistory() {
+    async loadHistory(forcedDate = null) {
         const btn = document.getElementById('loadHistoryBtn');
         const status = document.getElementById('historyStatus');
-        const dateInput = document.getElementById('historyDate');
-        const selectedDate = dateInput.value;
 
-        if (!selectedDate) {
-            status.textContent = 'Veuillez sélectionner une date.';
+        const dateStart = forcedDate || document.getElementById('historyDateStart').value;
+        const dateEnd = document.getElementById('historyDateEnd').value;
+
+        if (!dateStart) {
+            status.textContent = 'Sélectionnez une date.';
             status.style.color = '#ef4444';
             return;
         }
@@ -65,48 +80,38 @@ class AirtableDashboard {
         status.className = 'status-msg';
 
         try {
-            // Call our proxy server with the selected date
-            const response = await fetch(`/api/history?date=${selectedDate}`);
+            let url = `/api/history?date=${dateStart}`;
+            if (dateEnd) url += `&endDate=${dateEnd}`;
 
-            if (!response.ok) throw new Error('Erreur récupération historique');
+            const response = await fetch(url);
+            if (!response.ok) throw new Error('Erreur récupération');
 
             const historyData = await response.json();
 
-            if (!historyData || historyData.length === 0) {
-                status.textContent = 'Aucune donnée d\'historique trouvée.';
+            if (!historyData || (Array.isArray(historyData) && historyData.length === 0) || (historyData.records && historyData.records.length === 0)) {
+                status.textContent = 'Aucun historique trouvé.';
                 status.style.color = '#eab308';
                 return;
             }
 
-            // Transform data if needed, assuming structure is compatible or needs mapping
-            // For now, let's assume the webhook returns records in a similar format or we adapt
-            // If the webhook returns exactly what we need, great. If not, we might need a transformer.
-            // Let's assume it returns a list of records like Airtable
+            let records = historyData.records || historyData;
 
-            // NOTE: Adjust this based on actual webhook response structure
-            let records = historyData;
-            if (historyData.records) records = historyData.records;
-
-            // Update data
             this.data = this.transformData(records);
             this.filteredData = [...this.data];
-            this.applyFilters(); // Re-apply current filters
+            this.applyFilters();
             this.renderTableBody();
-            this.updateLastUpdate(); // Update time
+            this.updateLastUpdate();
 
-            status.textContent = 'Historique chargé avec succès !';
+            status.textContent = 'Données restaurées !';
             status.style.color = '#10b981';
-
-            // Close sidebar after short delay?
-            // setTimeout(() => this.toggleSidebar(false), 1500);
 
         } catch (error) {
             console.error('History load error:', error);
-            status.textContent = 'Erreur lors du chargement de l\'historique.';
+            status.textContent = 'Erreur lors de la récupération.';
             status.style.color = '#ef4444';
         } finally {
             btn.disabled = false;
-            btn.textContent = '📥 Charger l\'historique';
+            btn.textContent = '📥 Récupérer';
         }
     }
 
@@ -118,8 +123,8 @@ class AirtableDashboard {
         this.renderTableBody();
     }
 
-    async loadData() {
-        this.showLoading(true);
+    async loadData(silent = false) {
+        if (!silent) this.showLoading(true);
         this.hideError();
 
         try {
@@ -127,16 +132,21 @@ class AirtableDashboard {
             this.data = this.transformData(records);
             this.filteredData = [...this.data];
 
-            this.populateFilters();
-            this.renderTableBody();
+            if (document.getElementById('filterVille').options.length <= 1) {
+                this.populateFilters();
+            }
+
+            this.applyFilters();
             this.updateLastUpdate();
 
-            this.showLoading(false);
+            if (!silent) this.showLoading(false);
             document.getElementById('tableContainer').style.display = 'block';
         } catch (error) {
             console.error('Erreur lors du chargement des données:', error);
-            this.showLoading(false);
-            this.showError();
+            if (!silent) {
+                this.showLoading(false);
+                this.showError();
+            }
         }
     }
 
@@ -221,7 +231,7 @@ class AirtableDashboard {
             tr.appendChild(this.createEditableCell(row['Ventes - OT - Or'], 'Ventes - OT - Or', row.id, 'td-or'));
             tr.appendChild(this.createEditableCell(row['Quota - OT - Or'], 'Quota - OT - Or', row.id, 'td-or td-quota'));
             tr.appendChild(this.createCell(this.formatNumber(row['Total - Ventes - Or']), 'td-or td-total'));
-            tr.appendChild(this.createCell(this.formatNumber(row['Total - Quota - Or']), 'td-or td-quota'));
+            tr.appendChild(this.createEditableCell(row['Total - Quota - Or'], 'Total - Quota - Or', row.id, 'td-or td-quota'));
             tr.appendChild(this.createDeltaCell(row['Delta - Or'], row['Total - Ventes - Or'], row['Total - Quota - Or'], 'td-or'));
 
             tr.appendChild(this.createEditableCell(row['Ventes - Fever - Platinium'], 'Ventes - Fever - Platinium', row.id, 'td-platinium'));
@@ -231,7 +241,7 @@ class AirtableDashboard {
             tr.appendChild(this.createEditableCell(row['Ventes - OT - Platinium'], 'Ventes - OT - Platinium', row.id, 'td-platinium'));
             tr.appendChild(this.createEditableCell(row['Quota - OT - Platinium'], 'Quota - OT - Platinium', row.id, 'td-platinium td-quota'));
             tr.appendChild(this.createCell(this.formatNumber(row['Total - Ventes - Platinium']), 'td-platinium td-total'));
-            tr.appendChild(this.createCell(this.formatNumber(row['Total - Quota - Platinium']), 'td-platinium td-quota'));
+            tr.appendChild(this.createEditableCell(row['Total - Quota - Platinium'], 'Total - Quota - Platinium', row.id, 'td-platinium td-quota'));
             tr.appendChild(this.createDeltaCell(row['Delta - Platinium'], row['Total - Ventes - Platinium'], row['Total - Quota - Platinium'], 'td-platinium'));
 
             tr.appendChild(this.createEditableCell(row['Ventes - Fever - Argent'], 'Ventes - Fever - Argent', row.id, 'td-argent'));
@@ -241,17 +251,17 @@ class AirtableDashboard {
             tr.appendChild(this.createEditableCell(row['Ventes - OT - Argent'], 'Ventes - OT - Argent', row.id, 'td-argent'));
             tr.appendChild(this.createEditableCell(row['Quota - OT - Argent'], 'Quota - OT - Argent', row.id, 'td-argent td-quota'));
             tr.appendChild(this.createCell(this.formatNumber(row['Total - Ventes - Argent']), 'td-argent td-total'));
-            tr.appendChild(this.createCell(this.formatNumber(row['Total - Quota - Argent']), 'td-argent td-quota'));
+            tr.appendChild(this.createEditableCell(row['Total - Quota - Argent'], 'Total - Quota - Argent', row.id, 'td-argent td-quota'));
             tr.appendChild(this.createDeltaCell(row['Delta - Argent'], row['Total - Ventes - Argent'], row['Total - Quota - Argent'], 'td-argent'));
 
-            tr.appendChild(this.createCell(this.formatNumber(row['Total - Ventes - Fever']), 'td-total-section td-total'));
+            tr.appendChild(this.createEditableCell(row['Total - Ventes - Fever'], 'Total - Ventes - Fever', row.id, 'td-total-section td-total'));
             tr.appendChild(this.createPercentageCell(row['Total - Ventes - Fever (%)'], 'td-total-section'));
-            tr.appendChild(this.createCell(this.formatNumber(row['Total - Ventes - Regiondo']), 'td-total-section td-total'));
+            tr.appendChild(this.createEditableCell(row['Total - Ventes - Regiondo'], 'Total - Ventes - Regiondo', row.id, 'td-total-section td-total'));
             tr.appendChild(this.createPercentageCell(row['Total - Ventes - Regiondo (%)'], 'td-total-section'));
-            tr.appendChild(this.createCell(this.formatNumber(row['Total - Ventes - OT']), 'td-total-section td-total'));
+            tr.appendChild(this.createEditableCell(row['Total - Ventes - OT'], 'Total - Ventes - OT', row.id, 'td-total-section td-total'));
             tr.appendChild(this.createPercentageCell(row['Total - Ventes - OT (%)'], 'td-total-section'));
-            tr.appendChild(this.createCell(this.formatNumber(row['Total - Ventes']), 'td-total-section td-total'));
-            tr.appendChild(this.createCell(this.formatNumber(row['Total - Quota']), 'td-total-section td-quota'));
+            tr.appendChild(this.createEditableCell(row['Total - Ventes'], 'Total - Ventes', row.id, 'td-total-section td-total'));
+            tr.appendChild(this.createEditableCell(row['Total - Quota'], 'Total - Quota', row.id, 'td-total-section td-quota'));
             tr.appendChild(this.createDeltaCell(row['Total - Delta'], row['Total - Ventes'], row['Total - Quota'], 'td-total-section'));
             tr.appendChild(this.createTauxRemplissageCell(row['Taux de remplissage']));
 
