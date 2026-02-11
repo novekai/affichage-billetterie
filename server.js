@@ -179,11 +179,15 @@ app.patch('/api/update-record', async (req, res) => {
         const baseId = process.env.AIRTABLE_BASE_ID || '';
         const tableName = process.env.AIRTABLE_TABLE_NAME || 'Allocation billetterie';
 
+        console.log(`Update Request: Record=${recordId}, Field="${fieldName}", Value=${value}`);
+
         if (!apiKey || !baseId) {
+            console.error('Missing Airtable credentials in environment variables');
             return res.status(500).json({ error: 'Server configuration missing API Key or Base ID' });
         }
 
         const url = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}/${recordId}`;
+        console.log(`Airtable URL: ${url}`);
 
         const response = await fetch(url, {
             method: 'PATCH',
@@ -198,18 +202,19 @@ app.patch('/api/update-record', async (req, res) => {
             })
         });
 
+        const responseData = await response.json();
+
         if (!response.ok) {
-            const errorText = await response.text();
-            console.error(`Airtable PATCH error (${response.status}):`, errorText);
+            console.error(`Airtable Error (${response.status}):`, JSON.stringify(responseData));
             return res.status(response.status).json({
                 error: 'Airtable update error',
                 status: response.status,
-                details: errorText
+                details: responseData
             });
         }
 
-        const result = await response.json();
-        res.json(result);
+        console.log('Airtable Update Success:', JSON.stringify(responseData));
+        res.json(responseData);
     } catch (error) {
         console.error('Update record proxy error:', error);
         res.status(500).json({ error: error.message || 'Internal Server Error' });
