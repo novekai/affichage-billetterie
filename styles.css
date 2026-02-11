@@ -577,12 +577,6 @@ tbody td {
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
-.btn-refresh-filter:hover {
-    background: #dbeafe;
-    border-color: #3b82f6;
-    transform: scale(1.1);
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-}
 
 .btn-refresh-filter:active {
     transform: scale(0.9);
