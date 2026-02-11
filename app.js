@@ -81,7 +81,11 @@ class AirtableDashboard {
                 body: JSON.stringify(snapshotData)
             });
 
-            if (!response.ok) throw new Error('Erreur lors de la sauvegarde');
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                console.error('Server error details:', errorData);
+                throw new Error(errorData.error || 'Erreur lors de la sauvegarde');
+            }
 
             // Track in current session
             this.sessionHistory.unshift({
@@ -104,7 +108,7 @@ class AirtableDashboard {
             console.error('Save snapshot error:', error);
             const status = document.getElementById('historyStatus');
             if (status) {
-                status.textContent = '❌ Erreur lors de l\'enregistrement';
+                status.textContent = `❌ ${error.message}`;
                 status.style.color = '#ef4444';
                 status.className = 'status-msg';
             }

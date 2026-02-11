@@ -148,14 +148,20 @@ app.post('/api/save-snapshot', async (req, res) => {
         });
 
         if (!response.ok) {
-            throw new Error(`Webhook error: ${response.status}`);
+            const errorText = await response.text();
+            console.error(`n8n error (${response.status}):`, errorText);
+            return res.status(response.status).json({
+                error: 'n8n webhook error',
+                status: response.status,
+                details: errorText
+            });
         }
 
         const result = await response.json();
         res.json(result);
     } catch (error) {
         console.error('Save snapshot proxy error:', error);
-        res.status(500).json({ error: 'Failed to save snapshot' });
+        res.status(500).json({ error: error.message || 'Internal Server Error' });
     }
 });
 
