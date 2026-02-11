@@ -105,6 +105,9 @@ class AirtableDashboard {
             status.textContent = 'Données restaurées !';
             status.style.color = '#10b981';
 
+            // Automatically close sidebar to show the table
+            setTimeout(() => this.toggleSidebar(false), 800);
+
         } catch (error) {
             console.error('History load error:', error);
             status.textContent = 'Erreur lors de la récupération.';
