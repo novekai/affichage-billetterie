@@ -40,7 +40,6 @@ class AirtableDashboard {
         document.getElementById('filterVille').addEventListener('change', () => this.applyFilters());
         document.getElementById('filterDateStart').addEventListener('change', () => this.applyFilters());
         document.getElementById('filterDateEnd').addEventListener('change', () => this.applyFilters());
-        document.getElementById('btnReset').addEventListener('click', () => this.resetFilters());
     }
 
     toggleSidebar(open) {
@@ -56,9 +55,45 @@ class AirtableDashboard {
     }
 
     async saveSnapshot() {
-        // Placeholder for now
-        alert('Fonctionnalité "Enregistrer" en attente de configuration Airtable.');
-        console.log('Save snapshot requested');
+        const btn = document.getElementById('saveSnapshotBtn');
+        const now = new Date();
+        const timestamp = now.toLocaleString('fr-FR');
+
+        btn.disabled = true;
+        btn.textContent = 'Enregistrement...';
+
+        try {
+            const snapshotData = {
+                timestamp: timestamp,
+                recordCount: this.data.length,
+                data: this.data
+            };
+
+            const response = await fetch('/api/save-snapshot', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(snapshotData)
+            });
+
+            if (!response.ok) throw new Error('Erreur lors de la sauvegarde');
+
+            // Track in current session
+            this.sessionHistory.unshift({
+                id: Date.now(),
+                time: timestamp,
+                date: now.toISOString().split('T')[0]
+            });
+
+            this.renderRecentSnapshots();
+            alert(`Instantané enregistré avec succès ! (${timestamp})`);
+
+        } catch (error) {
+            console.error('Save snapshot error:', error);
+            alert('Erreur lors de l\'enregistrement de l\'instantané.');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = '💾 Enregistrer l\'instant T';
+        }
     }
 
     async loadHistory(forcedDate = null) {
@@ -116,14 +151,6 @@ class AirtableDashboard {
             btn.disabled = false;
             btn.textContent = '📥 Récupérer';
         }
-    }
-
-    resetFilters() {
-        document.getElementById('filterVille').value = '';
-        document.getElementById('filterDateStart').value = '';
-        document.getElementById('filterDateEnd').value = '';
-        this.filteredData = [...this.data];
-        this.renderTableBody();
     }
 
     async loadData(silent = false) {

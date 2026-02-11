@@ -104,15 +104,21 @@ const COLUMNS_ORDER = [
     res.send(config);
 });
 
+app.use(express.json({ limit: '50mb' }));
+
 // Proxy for History Webhook (to avoid CORS)
 app.get('/api/history', async (req, res) => {
     try {
         const date = req.query.date;
+        const endDate = req.query.endDate;
         let webhookUrl = 'https://n8n.srv1189694.hstgr.cloud/webhook/gestion-billetterie-backup';
 
-        if (date) {
-            webhookUrl += `?date=${date}`;
-        }
+        const params = new URLSearchParams();
+        if (date) params.append('date', date);
+        if (endDate) params.append('endDate', endDate);
+
+        const queryString = params.toString();
+        if (queryString) webhookUrl += `?${queryString}`;
 
         const response = await fetch(webhookUrl);
 
@@ -125,6 +131,31 @@ app.get('/api/history', async (req, res) => {
     } catch (error) {
         console.error('Proxy error:', error);
         res.status(500).json({ error: 'Failed to fetch history' });
+    }
+});
+
+// Proxy for Saving Snapshot (POST)
+app.post('/api/save-snapshot', async (req, res) => {
+    try {
+        const webhookUrl = 'https://n8n.srv1189694.hstgr.cloud/webhook/gestion-billetterie-backup';
+
+        const response = await fetch(webhookUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(req.body)
+        });
+
+        if (!response.ok) {
+            throw new Error(`Webhook error: ${response.status}`);
+        }
+
+        const result = await response.json();
+        res.json(result);
+    } catch (error) {
+        console.error('Save snapshot proxy error:', error);
+        res.status(500).json({ error: 'Failed to save snapshot' });
     }
 });
 
