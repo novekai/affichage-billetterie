@@ -27,10 +27,16 @@ class AirtableDashboard {
         // Manual Refresh Icon (Silent)
         document.getElementById('manualRefreshBtn').addEventListener('click', () => {
             const btn = document.getElementById('manualRefreshBtn');
-            btn.style.transition = 'transform 0.5s';
+            // Visual rotation feedback
+            btn.style.transition = 'transform 0.6s cubic-bezier(0.4, 0, 0.2, 1)';
             btn.style.transform = 'rotate(360deg)';
+
             this.loadData(true); // Silent mode!
-            setTimeout(() => btn.style.transform = 'rotate(0deg)', 500);
+
+            setTimeout(() => {
+                btn.style.transition = 'none';
+                btn.style.transform = 'rotate(0deg)';
+            }, 600);
         });
 
         // History actions
