@@ -106,49 +106,118 @@ const COLUMNS_ORDER = [
 
 app.use(express.json({ limit: '50mb' }));
 
-// Simple in-memory cache
+// Enhanced in-memory cache with background refresh
 let dataCache = {
     records: null,
     lastUpdate: 0,
-    ttl: 30000 // 30 seconds
+    isUpdating: false,
+    ttl: 300000 // 5 minutes standard cache
 };
+
+// Target fields to reduce payload size and speed up Airtable response
+const TARGET_FIELDS = [
+    'Date',
+    'Ville',
+    'Ventes - Fever - Or',
+    'Quota - Fever - Or',
+    'Ventes - Regiondo - Or',
+    'Quota - Regiondo - Or',
+    'Ventes - OT - Or',
+    'Quota - OT - Or',
+    'Total - Ventes - Or',
+    'Total - Quota - Or',
+    'Delta - Or',
+    'Ventes - Fever - Platinium',
+    'Quota - Fever - Platinium',
+    'Ventes - Regiondo - Platinium',
+    'Quota - Regiondo - Platinium',
+    'Ventes - OT - Platinium',
+    'Quota - OT - Platinium',
+    'Total - Ventes - Platinium',
+    'Total - Quota - Platinium',
+    'Delta - Platinium',
+    'Ventes - Fever - Argent',
+    'Quota - Fever - Argent',
+    'Ventes - Regiondo - Argent',
+    'Quota - Regiondo - Argent',
+    'Ventes - OT - Argent',
+    'Quota - OT - Argent',
+    'Total - Ventes - Argent',
+    'Total - Quota - Argent',
+    'Delta - Argent',
+    'Total - Ventes - Fever',
+    'Total - Ventes - Fever (%)',
+    'Total - Ventes - Regiondo',
+    'Total - Ventes - Regiondo (%)',
+    'Total - Ventes - OT',
+    'Total - Ventes - OT (%)',
+    'Total - Ventes',
+    'Total - Quota',
+    'Total - Delta',
+    'Taux de remplissage'
+];
 
 // Proxy for Fetching Main Airtable Data
 app.get('/api/data', async (req, res) => {
     try {
         const now = Date.now();
         const force = req.query.force === 'true';
-        const view = req.query.view || 'Grid view';
 
-        // Return cached data if valid and not forced
-        if (!force && dataCache.records && (now - dataCache.lastUpdate < dataCache.ttl)) {
-            console.log('Serving data from cache');
+        // 1. If we have cache and it's valid, return it immediately
+        if (!force && dataCache.records && dataCache.lastUpdate > 0 && (now - dataCache.lastUpdate < dataCache.ttl)) {
+            console.log('Serving valid data from cache');
             return res.json(dataCache.records);
         }
 
+        // 2. If we have stale cache AND it wasn't explicitly invalidated (lastUpdate > 0), 
+        // return it immediately AND trigger update in background.
+        // If lastUpdate === 0, it means an update just happened, so we MUST wait for fresh data.
+        if (!force && dataCache.records && dataCache.lastUpdate > 0 && !dataCache.isUpdating) {
+            console.log('Serving stale data, background refresh triggered...');
+            refreshDataInBackground(); // Start refresh but don't await it
+            return res.json(dataCache.records);
+        }
+
+        // 3. If no cache or forced refresh, we must wait for fresh data
+        const freshData = await refreshDataInBackground();
+        res.json(freshData);
+
+    } catch (error) {
+        console.error('Data proxy error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * Optimized background fetching function with field filtering
+ */
+async function refreshDataInBackground() {
+    if (dataCache.isUpdating) return dataCache.records;
+
+    dataCache.isUpdating = true;
+    try {
         const apiKey = process.env.AIRTABLE_API_KEY || '';
         const baseId = process.env.AIRTABLE_BASE_ID || '';
         const tableName = process.env.AIRTABLE_TABLE_NAME || 'Allocation billetterie';
 
-        if (!apiKey || !baseId) {
-            return res.status(500).json({ error: 'Server configuration missing API Key or Base ID' });
-        }
+        if (!apiKey || !baseId) throw new Error('Missing credentials (API Key or Base ID)');
 
         let allRecords = [];
         let offset = null;
         const baseUrl = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}`;
 
-        console.log(`Fetching fresh data from Airtable (Force=${force}, View=${view})...`);
+        console.log(`[Cache Update] Fetching fresh data from Airtable...`);
+        const startTime = Date.now();
+
         do {
-            let url = baseUrl;
             const params = new URLSearchParams();
             if (offset) params.append('offset', offset);
-            if (view) params.append('view', view);
+            params.append('view', 'Grid view');
 
-            const queryString = params.toString();
-            if (queryString) url += `?${queryString}`;
+            // Speed optimization: Only ask for specific fields
+            TARGET_FIELDS.forEach(f => params.append('fields[]', f));
 
-            const response = await fetch(url, {
+            const response = await fetch(`${baseUrl}?${params.toString()}`, {
                 headers: {
                     'Authorization': `Bearer ${apiKey}`,
                     'Content-Type': 'application/json'
@@ -165,16 +234,21 @@ app.get('/api/data', async (req, res) => {
             offset = data.offset;
         } while (offset);
 
-        // Update cache
+        // Update global cache
         dataCache.records = allRecords;
-        dataCache.lastUpdate = now;
+        dataCache.lastUpdate = Date.now();
+        console.log(`[Cache Update] Success. ${allRecords.length} records in ${(Date.now() - startTime) / 1000}s`);
 
-        res.json(allRecords);
-    } catch (error) {
-        console.error('Data proxy error:', error);
-        res.status(500).json({ error: error.message });
+        return allRecords;
+    } catch (err) {
+        console.error('[Cache Update] FAILED:', err.message);
+        // If it was the first load, propagate error. If background refresh, just log.
+        if (!dataCache.records) throw err;
+        return dataCache.records;
+    } finally {
+        dataCache.isUpdating = false;
     }
-});
+}
 
 // Proxy for Listing Backups from Airtable "Backup Data" table
 app.get('/api/list-backups', async (req, res) => {
@@ -231,8 +305,6 @@ app.post('/api/trigger-restore', async (req, res) => {
 
         const webhookUrl = 'https://n8n.srv1189694.hstgr.cloud/webhook/gestion-billetterie-restaure-backup';
 
-        // n8n expects recordId as a query param or in the body depending on configuration.
-        // Based on CONCATENATE URL provided by user, it likely expects recordId=...
         const urlWithParams = `${webhookUrl}?recordId=${recordId}`;
 
         console.log(`Triggering Restore for RecordID: ${recordId}`);
@@ -242,7 +314,7 @@ app.post('/api/trigger-restore', async (req, res) => {
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ recordId }) // Send in body too just in case
+            body: JSON.stringify({ recordId })
         });
 
         if (!response.ok) {
@@ -256,9 +328,9 @@ app.post('/api/trigger-restore', async (req, res) => {
         }
 
         // IMPORTANT: Clear the data cache since table is being restored
-        if (typeof dataCache !== 'undefined') dataCache.lastUpdate = 0;
+        dataCache.lastUpdate = 0;
 
-        const result = await response.text(); // n8n might not return JSON
+        const result = await response.text();
         res.json({ status: 'success', details: result });
     } catch (error) {
         console.error('Trigger restore proxy error:', error);
@@ -313,7 +385,9 @@ app.patch('/api/update-record', async (req, res) => {
         }
 
         const url = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}/${recordId}`;
-        console.log(`Airtable URL: ${url}`);
+
+        console.log(`[PROXIED PATCH] Sending to Airtable: ${url}`);
+        console.log(`[PROXIED PATCH] Payload:`, JSON.stringify({ fields: { [fieldName]: value } }));
 
         const response = await fetch(url, {
             method: 'PATCH',
@@ -331,7 +405,7 @@ app.patch('/api/update-record', async (req, res) => {
         const responseData = await response.json();
 
         if (!response.ok) {
-            console.error(`Airtable Error (${response.status}):`, JSON.stringify(responseData));
+            console.error(`[PROXIED PATCH] FAILED (${response.status}):`, JSON.stringify(responseData));
             return res.status(response.status).json({
                 error: 'Airtable update error',
                 status: response.status,
@@ -339,10 +413,10 @@ app.patch('/api/update-record', async (req, res) => {
             });
         }
 
-        console.log('Airtable Update Success:', JSON.stringify(responseData));
+        console.log('[PROXIED PATCH] SUCCESS from Airtable:', JSON.stringify(responseData));
 
         // Clear main data cache so the dashboard sees the new value on next refresh
-        if (typeof dataCache !== 'undefined') dataCache.lastUpdate = 0;
+        dataCache.lastUpdate = 0;
 
         res.json(responseData);
     } catch (error) {
