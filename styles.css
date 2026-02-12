@@ -29,7 +29,7 @@ body {
     color: var(--text-primary);
     min-height: 100vh;
     -webkit-font-smoothing: antialiased;
-    text-align: justify;
+    text-rendering: optimizeLegibility;
 }
 
 .container {
@@ -218,6 +218,8 @@ thead {
     top: 0;
     z-index: 10;
     background: white;
+    will-change: transform;
+    /* Hardware acceleration */
 }
 
 th {
@@ -260,6 +262,8 @@ th {
     left: 0;
     z-index: 20;
     border-right: 1px solid #000;
+    will-change: transform;
+    /* Hardware acceleration */
 }
 
 .th-sticky-ville {
@@ -375,6 +379,8 @@ tbody td {
     background: white;
     z-index: 5;
     border-right: 1px solid #000;
+    will-change: transform;
+    /* Hardware acceleration */
 }
 
 tbody tr:nth-child(even) .td-sticky {
