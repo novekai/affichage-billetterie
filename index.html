@@ -13,11 +13,12 @@
     <div class="container">
         <div class="header">
             <div class="header-left">
-                <h1>📊 Tableau de Bord - Allocation Billetterie</h1>
+                <h1>Tableau de Bord - Allocation Billetterie</h1>
             </div>
             <div class="header-actions">
-                <span id="lastUpdate" class="last-update"></span>
-                <button id="toggleHistoryBtn" class="btn-history">📂 Historique</button>
+                <button id="triggerRecoveryBtn" class="btn-recovery">Recuperer</button>
+                <button id="manualRefreshBtn" class="btn-icon-refresh" title="Actualiser manuellement">🔄</button>
+                <button id="toggleHistoryBtn" class="btn-history">Historique</button>
             </div>
         </div>
 
@@ -36,18 +37,17 @@
                 <label for="filterDateEnd">Au</label>
                 <input type="date" id="filterDateEnd" class="filter-input-centered">
             </div>
-            <button id="manualRefreshBtn" class="btn-refresh-filter" title="Actualiser les données">🔄</button>
         </div>
 
         <div id="historySidebar" class="sidebar">
             <div class="sidebar-header">
-                <h3>Sauvegardes & Restauration</h3>
+                <h3>Sauvegardes et Restauration</h3>
                 <button id="closeSidebarBtn" class="close-btn">&times;</button>
             </div>
             <div class="sidebar-content">
                 <div class="sidebar-section">
                     <h4>Action</h4>
-                    <button id="saveSnapshotBtn" class="btn-action btn-save">💾 Enregistrer l'instant T</button>
+                    <button id="saveSnapshotBtn" class="btn-action btn-save">Enregistrer l'instant T</button>
                     <div id="snapshotStatus" class="status-msg"></div>
                 </div>
 
@@ -55,7 +55,7 @@
 
                 <div class="sidebar-section">
                     <h4>Points de Restauration</h4>
-                    <p class="sidebar-info">Sélectionnez une sauvegarde pour restaurer la table principale.</p>
+                    <p class="sidebar-info">Selectionnez une sauvegarde pour restaurer la table principale.</p>
                     <div id="backupListStatus" class="status-msg"></div>
                     <div id="recentSnapshots" class="recent-list">
                         <div class="list-loading">Chargement des sauvegardes...</div>
@@ -67,11 +67,11 @@
 
         <div id="loading" class="loading">
             <div class="spinner"></div>
-            <p>Chargement des données depuis Airtable...</p>
+            <p>Chargement des donnees depuis Airtable...</p>
         </div>
 
         <div id="error" class="error" style="display: none;">
-            <p>⚠️ Erreur de chargement des données. Veuillez vérifier votre configuration Airtable.</p>
+            <p>Erreur de chargement des donnees. Veuillez verifier votre configuration Airtable.</p>
         </div>
 
         <div class="table-container" id="tableContainer" style="display: none;">

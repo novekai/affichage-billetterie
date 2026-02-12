@@ -338,6 +338,48 @@ app.post('/api/trigger-restore', async (req, res) => {
     }
 });
 
+// Proxy for Triggering Recovery (POST) - dual n8n connection (Fever & Regiondo)
+app.post('/api/trigger-recovery', async (req, res) => {
+    try {
+        const webhookFever = 'https://n8n.srv1189694.hstgr.cloud/webhook/gestion-billetterie-actualiser-donnees-fever';
+        const webhookRegiondo = 'https://n8n.srv1189694.hstgr.cloud/webhook/gestion-billetterie-actualiser-donnees-regiondo';
+
+        console.log(`Triggering Dual Data Recovery via n8n (Fever & Regiondo)...`);
+
+        const [responseFever, responseRegiondo] = await Promise.all([
+            fetch(webhookFever, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'recovery', source: 'fever', timestamp: new Date().toISOString() })
+            }),
+            fetch(webhookRegiondo, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'recovery', source: 'regiondo', timestamp: new Date().toISOString() })
+            })
+        ]);
+
+        if (!responseFever.ok || !responseRegiondo.ok) {
+            console.error(`n8n recovery error: Fever=${responseFever.status}, Regiondo=${responseRegiondo.status}`);
+            return res.status(500).json({
+                error: 'n8n recovery error',
+                details: {
+                    fever: responseFever.status,
+                    regiondo: responseRegiondo.status
+                }
+            });
+        }
+
+        // Invalidate cache since new data is being recovered
+        dataCache.lastUpdate = 0;
+
+        res.json({ status: 'success', details: 'Dual recovery triggered' });
+    } catch (error) {
+        console.error('Trigger recovery proxy error:', error);
+        res.status(500).json({ error: error.message || 'Internal Server Error' });
+    }
+});
+
 // Proxy for Saving Snapshot (POST)
 app.post('/api/save-snapshot', async (req, res) => {
     try {

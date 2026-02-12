@@ -43,8 +43,8 @@ class AirtableDashboard {
             }, 600);
         });
 
-        // History actions
         document.getElementById('saveSnapshotBtn').addEventListener('click', () => this.saveSnapshot());
+        document.getElementById('triggerRecoveryBtn').addEventListener('click', () => this.triggerRecovery());
 
         document.getElementById('filterVille').addEventListener('change', () => this.applyFilters());
         document.getElementById('filterDateStart').addEventListener('change', () => this.applyFilters());
@@ -93,7 +93,7 @@ class AirtableDashboard {
 
             const status = document.getElementById('snapshotStatus');
             if (status) {
-                status.textContent = '✅ Enregistré !';
+                status.textContent = 'Enregistre !';
                 status.style.color = '#22c55e';
             }
 
@@ -107,13 +107,13 @@ class AirtableDashboard {
         } catch (error) {
             const status = document.getElementById('snapshotStatus');
             if (status) {
-                status.textContent = '❌ ' + (error.message || 'Erreur');
+                status.textContent = 'Erreur: ' + (error.message || '');
                 status.style.color = '#ef4444';
             }
             console.error('Snapshot error:', error);
         } finally {
             btn.disabled = false;
-            btn.textContent = '💾 Enregistrer l\'instant T';
+            btn.textContent = 'Enregistrer l\'instant T';
         }
     }
 
@@ -154,8 +154,8 @@ class AirtableDashboard {
 
             div.innerHTML = `
                 <div class="history-info">
-                    <span class="history-time">📅 ${displayDate}</span>
-                    <span class="history-meta">ID: ${backup.backupId || backup.id.substring(0, 8)}</span>
+                    <span class="history-time">Date: ${displayDate}</span>
+                    <span class="history-meta">ID: ${backupIdSnippet}</span>
                 </div>
                 <button onclick="dashboard.triggerRestore('${backup.id}')" class="btn-restore-mini">Restaurer</button>
             `;
@@ -170,7 +170,7 @@ class AirtableDashboard {
 
         const status = document.getElementById('backupListStatus');
         if (status) {
-            status.textContent = '⏳ Restauration en cours...';
+            status.textContent = 'Restauration en cours...';
             status.style.color = '#3b82f6';
         }
 
@@ -187,7 +187,7 @@ class AirtableDashboard {
             }
 
             if (status) {
-                status.textContent = '✅ Demandé ! Patientez 5-10s...';
+                status.textContent = 'Demande ! Patientez environ 15 min...';
                 status.style.color = '#22c55e';
             }
 
@@ -195,7 +195,7 @@ class AirtableDashboard {
             setTimeout(() => {
                 this.loadData();
                 if (status) {
-                    status.textContent = '✅ Données actualisées !';
+                    status.textContent = 'Donnees actualisees !';
                     setTimeout(() => status.textContent = '', 3000);
                 }
             }, 8000);
@@ -203,7 +203,7 @@ class AirtableDashboard {
         } catch (error) {
             console.error('Restore error:', error);
             if (status) {
-                status.textContent = '❌ ' + error.message;
+                status.textContent = 'Erreur: ' + error.message;
                 status.style.color = '#ef4444';
             }
         }
@@ -225,7 +225,6 @@ class AirtableDashboard {
             }
 
             this.applyFilters();
-            this.updateLastUpdate();
 
             if (!silent) this.showLoading(false);
             document.getElementById('tableContainer').style.display = 'block';
@@ -548,28 +547,36 @@ class AirtableDashboard {
             }
 
             if (row['_parsedDate']) {
+                const rowDate = new Date(row['_parsedDate']);
+                rowDate.setHours(0, 0, 0, 0);
+
                 if (dateStartFilter && dateEndFilter) {
                     const startDate = new Date(dateStartFilter);
+                    startDate.setHours(0, 0, 0, 0);
                     const endDate = new Date(dateEndFilter);
                     endDate.setHours(23, 59, 59, 999);
-                    if (row['_parsedDate'] < startDate || row['_parsedDate'] > endDate) {
+
+                    if (rowDate < startDate || rowDate > endDate) {
                         match = false;
                     }
                 } else if (dateStartFilter) {
                     const filterDate = new Date(dateStartFilter);
-                    const rowDateStr = row['_parsedDate'].toDateString();
-                    const filterDateStr = filterDate.toDateString();
-                    if (rowDateStr !== filterDateStr) {
+                    filterDate.setHours(0, 0, 0, 0);
+                    // Match EXACT date if only Start is provided
+                    if (rowDate.getTime() !== filterDate.getTime()) {
                         match = false;
                     }
                 } else if (dateEndFilter) {
                     const filterDate = new Date(dateEndFilter);
-                    const rowDateStr = row['_parsedDate'].toDateString();
-                    const filterDateStr = filterDate.toDateString();
-                    if (rowDateStr !== filterDateStr) {
+                    filterDate.setHours(0, 0, 0, 0);
+                    // Match EXACT date if only End is provided
+                    if (rowDate.getTime() !== filterDate.getTime()) {
                         match = false;
                     }
                 }
+            } else if (dateStartFilter || dateEndFilter) {
+                // If there's no date on the row but a filter is active, it's not a match
+                match = false;
             }
 
             return match;
@@ -595,9 +602,35 @@ class AirtableDashboard {
         document.getElementById('error').style.display = 'none';
     }
 
-    updateLastUpdate() {
-        const now = new Date();
-        document.getElementById('lastUpdate').textContent = `Dernière mise à jour: ${now.toLocaleTimeString('fr-FR')}`;
+    async triggerRecovery() {
+        const btn = document.getElementById('triggerRecoveryBtn');
+        const originalText = btn.textContent;
+
+        if (!confirm('Voulez-vous lancer la récupération des données ?')) return;
+
+        btn.disabled = true;
+        btn.textContent = 'Recuperation...';
+
+        try {
+            const response = await fetch('/api/trigger-recovery', {
+                method: 'POST'
+            });
+
+            if (!response.ok) {
+                const err = await response.json().catch(() => ({}));
+                throw new Error(err.error || 'Echec de la recuperation');
+            }
+
+            alert('Recuperation lancee avec succes !');
+            // Refresh data after a short delay
+            setTimeout(() => this.loadData(true), 3000);
+        } catch (error) {
+            console.error('Recovery error:', error);
+            alert('Erreur: ' + error.message);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Recuperer';
+        }
     }
 }
 

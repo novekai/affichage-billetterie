@@ -87,13 +87,16 @@ body {
     display: flex;
     flex-direction: column;
     gap: 8px;
+    align-items: center;
+    /* Center horizontally in the column */
 }
 
 .filter-item label {
     font-size: 0.85rem;
     font-weight: 600;
     color: #475569;
-    padding-left: 2px;
+    text-align: center;
+    width: 100%;
 }
 
 .filter-input-centered {
@@ -105,7 +108,8 @@ body {
     background-color: #f8fafc;
     transition: all 0.2s;
     text-align: center;
-    /* Center the text! */
+    text-align-last: center;
+    /* Important for dropdown centering */
     min-width: 150px;
 }
 
@@ -558,6 +562,23 @@ tbody td {
 
 .btn-history:hover {
     background: rgba(255, 255, 255, 0.3);
+}
+
+.btn-recovery {
+    background: #f59e0b;
+    /* Amber/Orange */
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    padding: 8px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+
+.btn-recovery:hover {
+    background: #d97706;
+    transform: translateY(-1px);
 }
 
 .btn-refresh-filter {
