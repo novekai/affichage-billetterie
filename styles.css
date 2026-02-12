@@ -221,13 +221,11 @@ thead {
 }
 
 th {
-    border: 2px solid #64748b;
-    /* Matching thicker border */
-    border-bottom: 2px solid #475569;
-    /* Even darker separator */
+    border: 1px solid #000;
     font-weight: bold;
     color: var(--text-primary);
     padding: 8px;
+    background: white;
 }
 
 /* Header Levels (Specific adjustments) */
@@ -261,6 +259,12 @@ th {
     position: sticky;
     left: 0;
     z-index: 20;
+    border-right: 1px solid #000;
+}
+
+.th-sticky-ville {
+    left: 85px;
+    /* Adjust based on Date column width */
 }
 
 /* Specific Column Colors - Subtler */
@@ -357,14 +361,11 @@ tbody tr:hover {
 tbody td {
     padding: 8px 10px;
     text-align: center;
-    border: 2px solid #64748b;
-    /* Thicker, visible lines */
+    border: 1px solid #000;
     white-space: nowrap;
     font-size: 13px;
-    /* Slightly larger for readability */
     color: var(--text-primary);
     font-weight: bold;
-    /* Bold text/numbers */
 }
 
 /* Sticky Columns */
@@ -372,9 +373,8 @@ tbody td {
     position: sticky;
     left: 0;
     background: white;
-    /* Default background for sticky */
     z-index: 5;
-    border-right: 2px solid var(--border-color);
+    border-right: 1px solid #000;
 }
 
 tbody tr:nth-child(even) .td-sticky {
@@ -681,7 +681,7 @@ button {
 }
 
 .btn-save {
-    background: #10b981;
+    background: var(--accent-color);
     color: white;
 }
 
@@ -763,23 +763,21 @@ button {
 }
 
 .btn-restore-mini {
-    background: white;
-    border: 1px solid var(--border-color);
-    color: var(--text-primary);
+    background: var(--accent-color);
+    color: white;
+    border: none;
     border-radius: 4px;
-    padding: 6px 10px;
+    padding: 6px 12px;
     font-size: 0.75rem;
     font-weight: 600;
     cursor: pointer;
     transition: background 0.2s;
     white-space: nowrap;
-    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.05);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 .btn-restore-mini:hover {
-    background: var(--accent-color);
-    color: white;
-    border-color: var(--accent-color);
+    background: #1e40af;
 }
 
 .list-loading {

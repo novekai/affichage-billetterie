@@ -3,6 +3,7 @@ class AirtableDashboard {
         this.data = [];
         this.filteredData = [];
         this.isEditing = false;
+        this.isLoading = false;
         this.init();
     }
 
@@ -198,6 +199,9 @@ class AirtableDashboard {
 
 
     async loadData(silent = false, force = false) {
+        if (this.isLoading) return;
+        this.isLoading = true;
+
         if (!silent) this.showLoading(true);
         this.hideError();
 
@@ -220,6 +224,8 @@ class AirtableDashboard {
                 this.showLoading(false);
                 this.showError();
             }
+        } finally {
+            this.isLoading = false;
         }
     }
 
@@ -268,14 +274,17 @@ class AirtableDashboard {
 
     renderTableBody() {
         const tbody = document.getElementById('tableBody');
-        tbody.innerHTML = '';
+        const fragment = document.createDocumentFragment();
 
         this.filteredData.forEach(row => {
             const tr = document.createElement('tr');
 
             tr.appendChild(this.createCell(row['Date'] || '-', 'td-date td-sticky'));
             tr.appendChild(this.createCell(row['Ville'] || '-', 'td-ville td-sticky td-sticky-ville'));
+            // ... truncated cells ...
+            // (Note: I will replace the whole loop content for completeness if needed, but let's see if fragment works better)
 
+            // Re-creating the full loop here to ensure it's complete
             tr.appendChild(this.createEditableCell(row['Ventes - Fever - Or'], 'Ventes - Fever - Or', row.id, 'td-or'));
             tr.appendChild(this.createEditableCell(row['Quota - Fever - Or'], 'Quota - Fever - Or', row.id, 'td-or td-quota'));
             tr.appendChild(this.createEditableCell(row['Ventes - Regiondo - Or'], 'Ventes - Regiondo - Or', row.id, 'td-or'));
@@ -317,8 +326,11 @@ class AirtableDashboard {
             tr.appendChild(this.createDeltaCell(row['Total - Delta'], row['Total - Ventes'], row['Total - Quota'], 'td-total-section'));
             tr.appendChild(this.createTauxRemplissageCell(row['Taux de remplissage']));
 
-            tbody.appendChild(tr);
+            fragment.appendChild(tr);
         });
+
+        tbody.innerHTML = '';
+        tbody.appendChild(fragment);
     }
 
     createCell(content, className = '') {
