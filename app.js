@@ -139,11 +139,9 @@ class AirtableDashboard {
             // Date formatting
             let displayDate = backup.date || 'Date inconnue';
 
-            const backupIdSnippet = backup.backupId || backup.id.substring(0, 8);
             div.innerHTML = `
                 <div class="history-info">
                     <span class="history-time">Date: ${displayDate}</span>
-                    <span class="history-meta">ID: ${backupIdSnippet}</span>
                 </div>
                 <button onclick="dashboard.triggerRestore('${backup.id}')" class="btn-restore-mini">Restaurer</button>
             `;
