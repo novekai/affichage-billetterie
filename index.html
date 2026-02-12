@@ -41,40 +41,24 @@
 
         <div id="historySidebar" class="sidebar">
             <div class="sidebar-header">
-                <h3>Historique & Sauvegardes</h3>
+                <h3>Sauvegardes & Restauration</h3>
                 <button id="closeSidebarBtn" class="close-btn">&times;</button>
             </div>
             <div class="sidebar-content">
                 <div class="sidebar-section">
-                    <h4>Actions</h4>
+                    <h4>Action</h4>
                     <button id="saveSnapshotBtn" class="btn-action btn-save">💾 Enregistrer l'instant T</button>
+                    <div id="snapshotStatus" class="status-msg"></div>
                 </div>
 
                 <div class="sidebar-separator"></div>
 
                 <div class="sidebar-section">
-                    <h4>Récupération</h4>
-                    <p class="sidebar-info">Restaurer les données pour une date ou un intervalle.</p>
-                    <div class="sidebar-input-group">
-                        <label>Date / Début :</label>
-                        <input type="date" id="historyDateStart" class="sidebar-input">
-                    </div>
-                    <div class="sidebar-input-group">
-                        <label>Fin (optionnel) :</label>
-                        <input type="date" id="historyDateEnd" class="sidebar-input">
-                    </div>
-                    <button id="loadHistoryBtn" class="btn-action btn-load">📥 Récupérer</button>
-                    <div id="historyStatus" class="status-msg"></div>
-                </div>
-
-                <div class="sidebar-separator"></div>
-
-                <div class="sidebar-section">
-                    <h4>Derniers Enregistrements</h4>
+                    <h4>Points de Restauration</h4>
+                    <p class="sidebar-info">Sélectionnez une sauvegarde pour restaurer la table principale.</p>
+                    <div id="backupListStatus" class="status-msg"></div>
                     <div id="recentSnapshots" class="recent-list">
-                        <!-- Dynamically filled -->
-                        <p class="sidebar-info" style="text-align:center">Aucun enregistrement récent lors de cette
-                            session.</p>
+                        <div class="list-loading">Chargement des sauvegardes...</div>
                     </div>
                 </div>
             </div>

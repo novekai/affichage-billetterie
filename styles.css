@@ -632,39 +632,69 @@ tbody td {
 .recent-list {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
+    max-height: 400px;
+    overflow-y: auto;
+    padding-right: 5px;
 }
 
-.snapshot-item {
+.history-item {
     background: white;
-    padding: 10px;
+    padding: 12px;
     border: 1px solid #e2e8f0;
-    border-radius: 6px;
+    border-radius: 8px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    transition: transform 0.1s;
+    transition: all 0.2s;
 }
 
-.snapshot-item:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+.history-item:hover {
+    border-color: #3b82f6;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
-.snapshot-info {
-    font-size: 0.85rem;
-    color: #334155;
+.history-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
     text-align: left;
 }
 
-.btn-mini-load {
+.history-time {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #1e293b;
+}
+
+.history-meta {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    font-family: monospace;
+}
+
+.btn-restore-mini {
     background: #3b82f6;
     color: white;
     border: none;
     border-radius: 4px;
-    padding: 4px 8px;
-    font-size: 0.8rem;
+    padding: 6px 10px;
+    font-size: 0.75rem;
+    font-weight: 600;
     cursor: pointer;
+    transition: background 0.2s;
+    white-space: nowrap;
+}
+
+.btn-restore-mini:hover {
+    background: #2563eb;
+}
+
+.list-loading {
+    text-align: center;
+    padding: 20px;
+    color: #64748b;
+    font-size: 0.9rem;
 }
 
 .btn-icon-refresh {

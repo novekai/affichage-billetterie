@@ -18,9 +18,7 @@ class AirtableDashboard {
             }
         }, 30000);
 
-        // Session history storage
-        this.sessionHistory = [];
-        window.dashboard = this; // Make accessible for mini-buttons
+        window.dashboard = this; // Make accessible for buttons
     }
 
     bindEvents() {
@@ -46,7 +44,6 @@ class AirtableDashboard {
 
         // History actions
         document.getElementById('saveSnapshotBtn').addEventListener('click', () => this.saveSnapshot());
-        document.getElementById('loadHistoryBtn').addEventListener('click', () => this.loadHistory());
 
         document.getElementById('filterVille').addEventListener('change', () => this.applyFilters());
         document.getElementById('filterDateStart').addEventListener('change', () => this.applyFilters());
@@ -59,6 +56,7 @@ class AirtableDashboard {
         if (open) {
             sidebar.classList.add('open');
             overlay.classList.add('open');
+            this.loadBackupList(); // Refresh list on open
         } else {
             sidebar.classList.remove('open');
             overlay.classList.remove('open');
@@ -92,97 +90,125 @@ class AirtableDashboard {
                 throw new Error(errorData.error || 'Erreur lors de la sauvegarde');
             }
 
-            // Track in current session
-            this.sessionHistory.unshift({
-                id: Date.now(),
-                time: timestamp,
-                date: now.toISOString().split('T')[0]
-            });
-
-            this.renderRecentSnapshots();
-
-            // Show success in sidebar
-            const status = document.getElementById('historyStatus');
+            const status = document.getElementById('snapshotStatus');
             if (status) {
-                status.textContent = `✅ Instantané enregistré (${timestamp})`;
-                status.style.color = '#10b981';
-                status.className = 'status-msg';
+                status.textContent = '✅ Enregistré !';
+                status.style.color = '#22c55e';
             }
+
+            // Refresh the backup list to show the new one
+            this.loadBackupList();
+
+            setTimeout(() => {
+                if (status) status.textContent = '';
+            }, 3000);
 
         } catch (error) {
-            console.error('Save snapshot error:', error);
-            const status = document.getElementById('historyStatus');
+            const status = document.getElementById('snapshotStatus');
             if (status) {
-                status.textContent = `❌ ${error.message}`;
+                status.textContent = '❌ ' + (error.message || 'Erreur');
                 status.style.color = '#ef4444';
-                status.className = 'status-msg';
             }
+            console.error('Snapshot error:', error);
         } finally {
             btn.disabled = false;
             btn.textContent = '💾 Enregistrer l\'instant T';
         }
     }
 
-    async loadHistory(forcedDate = null) {
-        const btn = document.getElementById('loadHistoryBtn');
-        const status = document.getElementById('historyStatus');
+    async loadBackupList() {
+        const listContainer = document.getElementById('recentSnapshots');
 
-        const dateStart = forcedDate || document.getElementById('historyDateStart').value;
-        const dateEnd = document.getElementById('historyDateEnd').value;
+        try {
+            const response = await fetch('/api/list-backups');
+            if (!response.ok) throw new Error('Impossible de charger la liste');
 
-        if (!dateStart) {
-            status.textContent = 'Sélectionnez une date.';
-            status.style.color = '#ef4444';
+            const backups = await response.json();
+            this.renderBackupList(backups);
+        } catch (error) {
+            console.error('Load backups error:', error);
+            if (listContainer) {
+                listContainer.innerHTML = '<p class="sidebar-info" style="color:#ef4444">Erreur de chargement.</p>';
+            }
+        }
+    }
+
+    renderBackupList(backups) {
+        const listContainer = document.getElementById('recentSnapshots');
+        if (!listContainer) return;
+
+        listContainer.innerHTML = '';
+
+        if (backups.length === 0) {
+            listContainer.innerHTML = '<p class="sidebar-info" style="text-align:center">Aucune sauvegarde trouvée.</p>';
             return;
         }
 
-        btn.disabled = true;
-        btn.textContent = 'Chargement...';
-        status.textContent = '';
-        status.className = 'status-msg';
+        backups.forEach(backup => {
+            const div = document.createElement('div');
+            div.className = 'history-item';
+
+            // Date formatting
+            let displayDate = backup.date || 'Date inconnue';
+
+            div.innerHTML = `
+                <div class="history-info">
+                    <span class="history-time">📅 ${displayDate}</span>
+                    <span class="history-meta">ID: ${backup.backupId || backup.id.substring(0, 8)}</span>
+                </div>
+                <button onclick="dashboard.triggerRestore('${backup.id}')" class="btn-restore-mini">Restaurer</button>
+            `;
+            listContainer.appendChild(div);
+        });
+    }
+
+    async triggerRestore(recordId) {
+        if (!confirm('Voulez-vous vraiment restaurer cette version ? Les données actuelles seront remplacées.')) {
+            return;
+        }
+
+        const status = document.getElementById('backupListStatus');
+        if (status) {
+            status.textContent = '⏳ Restauration en cours...';
+            status.style.color = '#3b82f6';
+        }
 
         try {
-            let url = `/api/history?date=${dateStart}`;
-            if (dateEnd) url += `&endDate=${dateEnd}`;
+            const response = await fetch('/api/trigger-restore', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ recordId })
+            });
 
-            const response = await fetch(url);
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
-                console.error('History server error:', errorData);
-                throw new Error(errorData.error || 'Erreur récupération');
+                throw new Error(errorData.details || errorData.error || 'Échec de la restauration');
             }
 
-            const historyData = await response.json();
-
-            if (!historyData || (Array.isArray(historyData) && historyData.length === 0) || (historyData.records && historyData.records.length === 0)) {
-                status.textContent = 'Aucun historique trouvé.';
-                status.style.color = '#eab308';
-                return;
+            if (status) {
+                status.textContent = '✅ Demandé ! Patientez 5-10s...';
+                status.style.color = '#22c55e';
             }
 
-            let records = historyData.records || historyData;
-
-            this.data = this.transformData(records);
-            this.filteredData = [...this.data];
-            this.applyFilters();
-            this.renderTableBody();
-            this.updateLastUpdate();
-
-            status.textContent = 'Données restaurées !';
-            status.style.color = '#10b981';
-
-            // Automatically close sidebar to show the table
-            setTimeout(() => this.toggleSidebar(false), 800);
+            // Refresh data after a few seconds to see changes
+            setTimeout(() => {
+                this.loadData();
+                if (status) {
+                    status.textContent = '✅ Données actualisées !';
+                    setTimeout(() => status.textContent = '', 3000);
+                }
+            }, 8000);
 
         } catch (error) {
-            console.error('History load error:', error);
-            status.textContent = `❌ ${error.message}`;
-            status.style.color = '#ef4444';
-        } finally {
-            btn.disabled = false;
-            btn.textContent = '📥 Récupérer';
+            console.error('Restore error:', error);
+            if (status) {
+                status.textContent = '❌ ' + error.message;
+                status.style.color = '#ef4444';
+            }
         }
     }
+
+
 
     async loadData(silent = false) {
         if (!silent) this.showLoading(true);

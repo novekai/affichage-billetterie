@@ -106,37 +106,90 @@ const COLUMNS_ORDER = [
 
 app.use(express.json({ limit: '50mb' }));
 
-// Proxy for History Webhook (to avoid CORS)
-app.get('/api/history', async (req, res) => {
+// Proxy for Listing Backups from Airtable "Backup Data" table
+app.get('/api/list-backups', async (req, res) => {
     try {
-        const date = req.query.date;
-        const endDate = req.query.endDate;
-        let webhookUrl = 'https://n8n.srv1189694.hstgr.cloud/webhook/gestion-billetterie-backup';
+        const apiKey = process.env.AIRTABLE_API_KEY || '';
+        const baseId = process.env.AIRTABLE_BASE_ID || '';
+        const tableName = 'Backup Data';
 
-        const params = new URLSearchParams();
-        if (date) params.append('date', date);
-        if (endDate) params.append('endDate', endDate);
+        if (!apiKey || !baseId) {
+            return res.status(500).json({ error: 'Server configuration missing API Key or Base ID' });
+        }
 
-        const queryString = params.toString();
-        if (queryString) webhookUrl += `?${queryString}`;
+        const url = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}?sort%5B0%5D%5Bfield%5D=Date&sort%5B0%5D%5Bdirection%5D=desc&maxRecords=20`;
 
-        const response = await fetch(webhookUrl);
+        const response = await fetch(url, {
+            headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Type': 'application/json'
+            }
+        });
 
         if (!response.ok) {
             const errorText = await response.text();
-            console.error(`n8n GET error (${response.status}):`, errorText);
+            console.error(`Airtable list error (${response.status}):`, errorText);
             return res.status(response.status).json({
-                error: 'n8n history error',
+                error: 'Airtable list-backups error',
                 status: response.status,
                 details: errorText
             });
         }
 
         const data = await response.json();
-        res.json(data);
+        // Map to simpler format for frontend
+        const backups = data.records.map(record => ({
+            id: record.id,
+            date: record.fields['Date'],
+            backupId: record.fields['Id du backup']
+        }));
+
+        res.json(backups);
     } catch (error) {
-        console.error('Proxy history error:', error);
-        res.status(500).json({ error: error.message || 'Failed to fetch history' });
+        console.error('List backups proxy error:', error);
+        res.status(500).json({ error: error.message || 'Internal Server Error' });
+    }
+});
+
+// Proxy for Triggering Restoration (POST)
+app.post('/api/trigger-restore', async (req, res) => {
+    try {
+        const { recordId } = req.body;
+        if (!recordId) {
+            return res.status(400).json({ error: 'recordId is required' });
+        }
+
+        const webhookUrl = 'https://n8n.srv1189694.hstgr.cloud/webhook/gestion-billetterie-restaure-backup';
+
+        // n8n expects recordId as a query param or in the body depending on configuration.
+        // Based on CONCATENATE URL provided by user, it likely expects recordId=...
+        const urlWithParams = `${webhookUrl}?recordId=${recordId}`;
+
+        console.log(`Triggering Restore for RecordID: ${recordId}`);
+
+        const response = await fetch(urlWithParams, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ recordId }) // Send in body too just in case
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`n8n restore error (${response.status}):`, errorText);
+            return res.status(response.status).json({
+                error: 'n8n restoration error',
+                status: response.status,
+                details: errorText
+            });
+        }
+
+        const result = await response.text(); // n8n might not return JSON
+        res.json({ status: 'success', details: result });
+    } catch (error) {
+        console.error('Trigger restore proxy error:', error);
+        res.status(500).json({ error: error.message || 'Internal Server Error' });
     }
 });
 
