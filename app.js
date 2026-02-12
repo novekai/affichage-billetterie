@@ -19,6 +19,7 @@ class AirtableDashboard {
         }, 30000);
 
         window.dashboard = this; // Make accessible for buttons
+        this.loadBackupList(); // Pre-load backups immediately
     }
 
     bindEvents() {
@@ -34,7 +35,7 @@ class AirtableDashboard {
             btn.style.transition = 'transform 0.6s cubic-bezier(0.4, 0, 0.2, 1)';
             btn.style.transform = 'rotate(360deg)';
 
-            this.loadData(true); // Silent mode!
+            this.loadData(true, true); // Silent mode + Force refresh!
 
             setTimeout(() => {
                 btn.style.transition = 'none';
@@ -210,12 +211,12 @@ class AirtableDashboard {
 
 
 
-    async loadData(silent = false) {
+    async loadData(silent = false, force = false) {
         if (!silent) this.showLoading(true);
         this.hideError();
 
         try {
-            const records = await this.fetchAirtableData();
+            const records = await this.fetchAirtableData(force);
             this.data = this.transformData(records);
             this.filteredData = [...this.data];
 
@@ -237,8 +238,9 @@ class AirtableDashboard {
         }
     }
 
-    async fetchAirtableData() {
-        const response = await fetch('/api/data');
+    async fetchAirtableData(force = false) {
+        const url = force ? '/api/data?force=true' : '/api/data';
+        const response = await fetch(url);
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));

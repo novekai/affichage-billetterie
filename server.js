@@ -106,9 +106,25 @@ const COLUMNS_ORDER = [
 
 app.use(express.json({ limit: '50mb' }));
 
+// Simple in-memory cache
+let dataCache = {
+    records: null,
+    lastUpdate: 0,
+    ttl: 30000 // 30 seconds
+};
+
 // Proxy for Fetching Main Airtable Data
 app.get('/api/data', async (req, res) => {
     try {
+        const now = Date.now();
+        const force = req.query.force === 'true';
+
+        // Return cached data if valid and not forced
+        if (!force && dataCache.records && (now - dataCache.lastUpdate < dataCache.ttl)) {
+            console.log('Serving data from cache');
+            return res.json(dataCache.records);
+        }
+
         const apiKey = process.env.AIRTABLE_API_KEY || '';
         const baseId = process.env.AIRTABLE_BASE_ID || '';
         const tableName = process.env.AIRTABLE_TABLE_NAME || 'Allocation billetterie';
@@ -121,8 +137,16 @@ app.get('/api/data', async (req, res) => {
         let offset = null;
         const baseUrl = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}`;
 
+        console.log(`Fetching fresh data from Airtable (Force=${force}, View=${view})...`);
         do {
-            const url = offset ? `${baseUrl}?offset=${offset}` : baseUrl;
+            let url = baseUrl;
+            const params = new URLSearchParams();
+            if (offset) params.append('offset', offset);
+            if (view) params.append('view', view);
+
+            const queryString = params.toString();
+            if (queryString) url += `?${queryString}`;
+
             const response = await fetch(url, {
                 headers: {
                     'Authorization': `Bearer ${apiKey}`,
@@ -139,6 +163,10 @@ app.get('/api/data', async (req, res) => {
             allRecords = allRecords.concat(data.records);
             offset = data.offset;
         } while (offset);
+
+        // Update cache
+        dataCache.records = allRecords;
+        dataCache.lastUpdate = now;
 
         res.json(allRecords);
     } catch (error) {
@@ -226,6 +254,9 @@ app.post('/api/trigger-restore', async (req, res) => {
             });
         }
 
+        // IMPORTANT: Clear the data cache since table is being restored
+        if (typeof dataCache !== 'undefined') dataCache.lastUpdate = 0;
+
         const result = await response.text(); // n8n might not return JSON
         res.json({ status: 'success', details: result });
     } catch (error) {
@@ -308,6 +339,10 @@ app.patch('/api/update-record', async (req, res) => {
         }
 
         console.log('Airtable Update Success:', JSON.stringify(responseData));
+
+        // Clear main data cache so the dashboard sees the new value on next refresh
+        if (typeof dataCache !== 'undefined') dataCache.lastUpdate = 0;
+
         res.json(responseData);
     } catch (error) {
         console.error('Update record proxy error:', error);
