@@ -592,7 +592,7 @@ class AirtableDashboard {
         const btn = document.getElementById('triggerRecoveryBtn');
         const originalText = btn.textContent;
 
-        if (!confirm('Voulez-vous lancer la récupération des données ?')) return;
+        if (!confirm('Voulez-vous lancer la récupération des données ?\n\nAttention : Ce processus dure environ 2 heures.')) return;
 
         btn.disabled = true;
         btn.textContent = 'Recuperation...';
@@ -607,7 +607,7 @@ class AirtableDashboard {
                 throw new Error(err.error || 'Echec de la recuperation');
             }
 
-            alert('Recuperation lancee avec succes !');
+            alert('Recuperation lancee avec succes ! Les donnees seront mises a jour dans environ 2 heures.');
             // Refresh data after a short delay
             setTimeout(() => this.loadData(true), 3000);
         } catch (error) {

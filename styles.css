@@ -485,7 +485,7 @@ tbody tr:hover .td-sticky {
 
 .td-quota {
     color: #666;
-    font-style: italic;
+    font-weight: 500;
 }
 
 .td-total {
@@ -599,11 +599,6 @@ tbody tr:hover .td-sticky {
 }
 
 /* Updated Header & Buttons */
-.header-left h1 {
-    margin: 0;
-    font-size: 1.5rem;
-    color: white;
-}
 
 /* Button Refinements */
 button {
