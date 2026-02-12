@@ -28,24 +28,11 @@ class AirtableDashboard {
         document.getElementById('closeSidebarBtn').addEventListener('click', () => this.toggleSidebar(false));
         document.getElementById('sidebarOverlay').addEventListener('click', () => this.toggleSidebar(false));
 
-        // Manual Refresh Icon (Silent)
-        document.getElementById('manualRefreshBtn').addEventListener('click', () => {
-            const btn = document.getElementById('manualRefreshBtn');
-            // Visual rotation feedback
-            btn.style.transition = 'transform 0.6s cubic-bezier(0.4, 0, 0.2, 1)';
-            btn.style.transform = 'rotate(360deg)';
-
-            this.loadData(true, true); // Silent mode + Force refresh!
-
-            setTimeout(() => {
-                btn.style.transition = 'none';
-                btn.style.transform = 'rotate(0deg)';
-            }, 600);
-        });
-
+        // Sidebar actions
         document.getElementById('saveSnapshotBtn').addEventListener('click', () => this.saveSnapshot());
         document.getElementById('triggerRecoveryBtn').addEventListener('click', () => this.triggerRecovery());
 
+        // Filters
         document.getElementById('filterVille').addEventListener('change', () => this.applyFilters());
         document.getElementById('filterDateStart').addEventListener('change', () => this.applyFilters());
         document.getElementById('filterDateEnd').addEventListener('change', () => this.applyFilters());
@@ -152,6 +139,7 @@ class AirtableDashboard {
             // Date formatting
             let displayDate = backup.date || 'Date inconnue';
 
+            const backupIdSnippet = backup.backupId || backup.id.substring(0, 8);
             div.innerHTML = `
                 <div class="history-info">
                     <span class="history-time">Date: ${displayDate}</span>
