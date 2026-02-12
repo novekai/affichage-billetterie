@@ -118,6 +118,7 @@ app.get('/api/data', async (req, res) => {
     try {
         const now = Date.now();
         const force = req.query.force === 'true';
+        const view = req.query.view || 'Grid view';
 
         // Return cached data if valid and not forced
         if (!force && dataCache.records && (now - dataCache.lastUpdate < dataCache.ttl)) {
