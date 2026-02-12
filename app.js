@@ -238,38 +238,14 @@ class AirtableDashboard {
     }
 
     async fetchAirtableData() {
-        // Add cache-buster to ensure we don't get stale browser cache
-        const cacheBuster = `?t=${Date.now()}`;
-        const url = `https://api.airtable.com/v0/${AIRTABLE_CONFIG.BASE_ID}/${encodeURIComponent(AIRTABLE_CONFIG.TABLE_NAME)}${cacheBuster}`;
-
-        const response = await fetch(url, {
-            headers: {
-                'Authorization': `Bearer ${AIRTABLE_CONFIG.API_KEY}`,
-                'Content-Type': 'application/json'
-            }
-        });
+        const response = await fetch('/api/data');
 
         if (!response.ok) {
-            throw new Error(`Erreur Airtable: ${response.status}`);
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || `Erreur serveur: ${response.status}`);
         }
 
-        const data = await response.json();
-        let allRecords = data.records;
-        let offset = data.offset;
-
-        while (offset) {
-            const nextResponse = await fetch(`${url}?offset=${offset}`, {
-                headers: {
-                    'Authorization': `Bearer ${AIRTABLE_CONFIG.API_KEY}`,
-                    'Content-Type': 'application/json'
-                }
-            });
-            const nextData = await nextResponse.json();
-            allRecords = allRecords.concat(nextData.records);
-            offset = nextData.offset;
-        }
-
-        return allRecords;
+        return await response.json();
     }
 
     transformData(records) {
@@ -624,13 +600,17 @@ class AirtableDashboard {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    if (AIRTABLE_CONFIG.API_KEY === 'VOTRE_CLE_API_ICI' || AIRTABLE_CONFIG.BASE_ID === 'VOTRE_BASE_ID_ICI') {
-        document.getElementById('loading').innerHTML = `
-            <div style="text-align: center; padding: 40px;">
-                <h2 style="color: #f59e0b; margin-bottom: 20px;">⚙️ Configuration requise</h2>
-                <p>Veuillez configurer vos identifiants Airtable dans config.js</p>
-            </div>
-        `;
+    // Check against actual placeholders in config.js
+    if (AIRTABLE_CONFIG.API_KEY === 'VOTRE_CLE_API' || AIRTABLE_CONFIG.BASE_ID === 'VOTRE_BASE_ID') {
+        const loadingDiv = document.getElementById('loading');
+        if (loadingDiv) {
+            loadingDiv.innerHTML = `
+                <div style="text-align: center; padding: 40px; background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">
+                    <h2 style="color: #f59e0b; margin-bottom: 20px;">⚙️ Configuration requise</h2>
+                    <p style="color: #4b5563;">Veuillez configurer vos identifiants Airtable dans <code>config.js</code> ou utiliser les variables d'environnement.</p>
+                </div>
+            `;
+        }
         return;
     }
     new AirtableDashboard();

@@ -106,6 +106,47 @@ const COLUMNS_ORDER = [
 
 app.use(express.json({ limit: '50mb' }));
 
+// Proxy for Fetching Main Airtable Data
+app.get('/api/data', async (req, res) => {
+    try {
+        const apiKey = process.env.AIRTABLE_API_KEY || '';
+        const baseId = process.env.AIRTABLE_BASE_ID || '';
+        const tableName = process.env.AIRTABLE_TABLE_NAME || 'Allocation billetterie';
+
+        if (!apiKey || !baseId) {
+            return res.status(500).json({ error: 'Server configuration missing API Key or Base ID' });
+        }
+
+        let allRecords = [];
+        let offset = null;
+        const baseUrl = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}`;
+
+        do {
+            const url = offset ? `${baseUrl}?offset=${offset}` : baseUrl;
+            const response = await fetch(url, {
+                headers: {
+                    'Authorization': `Bearer ${apiKey}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Airtable error (${response.status}): ${errorText}`);
+            }
+
+            const data = await response.json();
+            allRecords = allRecords.concat(data.records);
+            offset = data.offset;
+        } while (offset);
+
+        res.json(allRecords);
+    } catch (error) {
+        console.error('Data proxy error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Proxy for Listing Backups from Airtable "Backup Data" table
 app.get('/api/list-backups', async (req, res) => {
     try {
