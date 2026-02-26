@@ -35,6 +35,24 @@ const AIRTABLE_CONFIG = {
 };
 ```
 
+### Étape 3: Configurer le Mot de Passe (Sécurité)
+
+Le tableau de bord est protégé par une authentification. Vous devez définir la variable d'environnement `DASHBOARD_PASSWORD`.
+
+**Sur Railway / Hébergeur :**
+Ajoutez une nouvelle variable d'environnement nommée `DASHBOARD_PASSWORD` et définissez la valeur de votre choix (ex: `MonMotDePasseSecret`).
+
+**En local :**
+Vous pouvez lancer le serveur en définissant la variable :
+```bash
+# Windows (PowerShell)
+$env:DASHBOARD_PASSWORD="mon_mot_de_passe"; npm start
+
+# Mac/Linux
+DASHBOARD_PASSWORD="mon_mot_de_passe" npm start
+```
+*Si aucune variable n'est définie, le mot de passe par défaut `admin` sera utilisé (non recommandé).*
+
 ## 🚀 Utilisation
 
 ### Option 1: Ouvrir directement (simple)
@@ -69,6 +87,7 @@ Le tableau affiche les colonnes suivantes depuis Airtable:
 ### Informations principales
 - Date
 - Ville
+- Événement (Show)
 
 ### Catégorie Or 🥇
 - Ventes - Fever - Or
@@ -119,18 +138,20 @@ Le tableau affiche les colonnes suivantes depuis Airtable:
 
 - ✅ Affichage des données en temps réel depuis Airtable
 - ✅ Barres de progression pour les ventes vs quotas
-- ✅ Filtrage par ville et statut
+- ✅ Filtrage dynamique par ville et **événement**
+- ✅ **Masquage intelligent** des catégories (Or, Platinium, Argent) si elles sont vides
 - ✅ Cartes récapitulatives avec totaux
 - ✅ Mise en forme colorée par catégorie (Or, Platinium, Argent)
 - ✅ Indicateurs visuels pour les deltas positifs/négatifs
 - ✅ Badges de statut (Atteint, En cours, Non atteint)
+✅ Interface sécurisée par **mot de passe** définie via variable d'environnement (`DASHBOARD_PASSWORD`)
 - ✅ Bouton d'actualisation manuelle
 - ✅ Design responsive
 
 ## 🔧 Personnalisation
 
 ### Modifier les colonnes
-Éditez la liste `COLUMNS_ORDER` dans `config.js` pour ajouter, supprimer ou réordonner les colonnes.
+Éditez la liste `COLUMNS_ORDER` dans `server.js` (via le proxy `/config.js`) pour ajouter, supprimer ou réordonner les colonnes.
 
 ### Modifier les styles
 Éditez `styles.css` pour personnaliser les couleurs et le design.
@@ -138,11 +159,11 @@ Le tableau affiche les colonnes suivantes depuis Airtable:
 ## ❓ Dépannage
 
 **"Erreur de chargement des données"**
-- Vérifiez que votre token API est valide
+- Vérifiez que votre token API Airtable est valide
 - Vérifiez que le Base ID est correct
 - Vérifiez que le nom de la table est exact (sensible à la casse)
 - Vérifiez que votre token a accès à cette base
 
-**Problème CORS**
-- Utilisez un serveur local (voir Option 2 ci-dessus)
-- Ou utilisez un navigateur avec les restrictions CORS désactivées (non recommandé en production)
+**Problème CORS ou Local**
+- Utilisez le serveur Node.js inclus (`node server.js`) pour éviter les restrictions de sécurité du navigateur en local.
+- Accédez au tableau de bord via `http://localhost:3000`.

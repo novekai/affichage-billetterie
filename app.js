@@ -11,7 +11,7 @@ class AirtableDashboard {
         this.bindEvents();
         await this.loadData();
 
-        // Auto-refresh every 30 seconds (silent mode), only if not editing
+        // Rafraîchissement automatique toutes les 30 secondes (mode silencieux), uniquement si pas en cours d'édition
         if (this.refreshInterval) clearInterval(this.refreshInterval);
         this.refreshInterval = setInterval(() => {
             if (!this.isEditing) {
@@ -19,21 +19,21 @@ class AirtableDashboard {
             }
         }, 30000);
 
-        window.dashboard = this; // Make accessible for buttons
-        this.loadBackupList(); // Pre-load backups immediately
+        window.dashboard = this; // Rendre accessible pour les boutons
+        this.loadBackupList(); // Pré-charger la liste des sauvegardes immédiatement
     }
 
     bindEvents() {
-        // Sidebar controls
+        // Contrôles de la barre latérale (sidebar)
         document.getElementById('toggleHistoryBtn').addEventListener('click', () => this.toggleSidebar(true));
         document.getElementById('closeSidebarBtn').addEventListener('click', () => this.toggleSidebar(false));
         document.getElementById('sidebarOverlay').addEventListener('click', () => this.toggleSidebar(false));
 
-        // Sidebar actions
+        // Actions de la barre latérale
         document.getElementById('saveSnapshotBtn').addEventListener('click', () => this.saveSnapshot());
         document.getElementById('triggerRecoveryBtn').addEventListener('click', () => this.triggerRecovery());
 
-        // Filters
+        // Filtres
         document.getElementById('filterVille').addEventListener('change', () => this.applyFilters());
         document.getElementById('filterDateStart').addEventListener('change', () => this.applyFilters());
         document.getElementById('filterDateEnd').addEventListener('change', () => this.applyFilters());
@@ -45,7 +45,7 @@ class AirtableDashboard {
         if (open) {
             sidebar.classList.add('open');
             overlay.classList.add('open');
-            this.loadBackupList(); // Refresh list on open
+            this.loadBackupList(); // Rafraîchir la liste à l'ouverture
         } else {
             sidebar.classList.remove('open');
             overlay.classList.remove('open');
@@ -85,7 +85,7 @@ class AirtableDashboard {
                 status.style.color = '#22c55e';
             }
 
-            // Refresh the backup list to show the new one
+            // Rafraîchir la liste des sauvegardes pour afficher la nouvelle
             this.loadBackupList();
 
             setTimeout(() => {
@@ -137,7 +137,7 @@ class AirtableDashboard {
             const div = document.createElement('div');
             div.className = 'history-item';
 
-            // Date formatting
+            // Formatage de la date
             let displayDate = backup.date || 'Date inconnue';
 
             div.innerHTML = `
@@ -178,7 +178,7 @@ class AirtableDashboard {
                 status.style.color = '#22c55e';
             }
 
-            // Refresh data after a few seconds to see changes
+            // Rafraîchir les données après quelques secondes pour voir les changements
             setTimeout(() => {
                 this.loadData();
                 if (status) {
@@ -282,10 +282,8 @@ class AirtableDashboard {
             tr.appendChild(this.createCell(row['Date'] || '-', 'td-date td-sticky'));
             tr.appendChild(this.createCell(row['Ville'] || '-', 'td-ville td-sticky td-sticky-ville'));
             tr.appendChild(this.createCell(row['Show'] || '-', 'td-event td-sticky td-sticky-event'));
-            // ... truncated cells ...
-            // (Note: I will replace the whole loop content for completeness if needed, but let's see if fragment works better)
 
-            // Re-creating the full loop here to ensure it's complete
+            // Re-création de la boucle complète pour s'assurer qu'elle est complète
             tr.appendChild(this.createEditableCell(row['Ventes - Fever - Or'], 'Ventes - Fever - Or', row.id, 'td-or'));
             tr.appendChild(this.createEditableCell(row['Quota - Fever - Or'], 'Quota - Fever - Or', row.id, 'td-or td-quota'));
             tr.appendChild(this.createEditableCell(row['Ventes - Regiondo - Or'], 'Ventes - Regiondo - Or', row.id, 'td-or'));
@@ -389,7 +387,7 @@ class AirtableDashboard {
         const td = document.createElement('td');
         td.className = `td-editable ${baseClass}`;
         td.textContent = this.formatNumber(value);
-        td.dataset.value = value; // Store raw value
+        td.dataset.value = value; // Stocker la valeur brute
 
         td.addEventListener('dblclick', () => {
             if (td.classList.contains('td-editing')) return;
@@ -403,7 +401,7 @@ class AirtableDashboard {
             input.type = 'number';
             input.className = 'edit-input';
             input.value = originalValue;
-            input.addEventListener('click', e => e.stopPropagation()); // Prevent bubbling
+            input.addEventListener('click', e => e.stopPropagation()); // Empêcher la propagation du clic
 
             const finishEdit = () => {
                 this.isEditing = false;
@@ -411,7 +409,7 @@ class AirtableDashboard {
                 td.textContent = this.formatNumber(originalValue);
             };
 
-            // Save on Enter, Cancel on Escape
+            // Sauvegarder sur Entrée, Annuler sur Échap
             input.addEventListener('keydown', async (e) => {
                 if (e.key === 'Escape') {
                     finishEdit();
@@ -436,7 +434,7 @@ class AirtableDashboard {
                         await this.updateAirtableField(recordId, fieldName, newValue === '' ? null : parseFloat(newValue));
                         td.classList.add('td-saving');
                         setTimeout(() => td.classList.remove('td-saving'), 1000);
-                        await this.loadData(true); // Silent reload to get calculated fields
+                        await this.loadData(true); // Rechargement silencieux pour obtenir les champs calculés
                     } catch (err) {
                         console.error('Update failed', err);
                         alert(`Erreur : ${err.message}`);
@@ -447,7 +445,7 @@ class AirtableDashboard {
             });
 
             input.addEventListener('blur', () => {
-                // If not already finished by Enter/Escape
+                // Si pas déjà terminé par Entrée/Échap
                 if (td.classList.contains('td-editing')) {
                     finishEdit();
                 }
@@ -461,7 +459,7 @@ class AirtableDashboard {
     }
 
     async updateAirtableField(recordId, fieldName, value) {
-        console.log(`[Proxy Update] Attempting: Record=${recordId}, Field="${fieldName}", Value=${value}`);
+        console.log(`[Mise à jour Proxy] Tentative : Record=${recordId}, Field="${fieldName}", Value=${value}`);
 
         const response = await fetch('/api/update-record', {
             method: 'PATCH',
@@ -478,11 +476,11 @@ class AirtableDashboard {
         const responseData = await response.json().catch(() => ({}));
 
         if (!response.ok) {
-            console.error('[Proxy Update] Failure:', responseData);
+            console.error('[Mise à jour Proxy] Échec :', responseData);
             throw new Error(responseData.error || `Erreur Update (${response.status})`);
         }
 
-        console.log('[Proxy Update] Success:', responseData);
+        console.log('[Mise à jour Proxy] Succès :', responseData);
         return responseData;
     }
 
@@ -522,7 +520,16 @@ class AirtableDashboard {
 
     populateFilters() {
         const villes = [...new Set(this.data.map(r => r['Ville']).filter(Boolean))].sort();
-        const events = [...new Set(this.data.map(r => r['Show']).filter(Boolean))].sort();
+
+        // Extraction robuste pour le champ Show (Événement) qui peut être un tableau (Linked Record Airtable)
+        let allEvents = [];
+        this.data.forEach(r => {
+            if (r['Show']) {
+                const evStr = Array.isArray(r['Show']) ? r['Show'].join(', ') : String(r['Show']);
+                allEvents.push(evStr.trim());
+            }
+        });
+        const events = [...new Set(allEvents.filter(Boolean))].sort();
 
         const villeSelect = document.getElementById('filterVille');
         villeSelect.innerHTML = '<option value="">Toutes les villes</option>';
@@ -534,13 +541,15 @@ class AirtableDashboard {
         });
 
         const eventSelect = document.getElementById('filterEvent');
-        eventSelect.innerHTML = '<option value="">Tous les évènements</option>';
-        events.forEach(ev => {
-            const option = document.createElement('option');
-            option.value = ev;
-            option.textContent = ev;
-            eventSelect.appendChild(option);
-        });
+        if (eventSelect) {
+            eventSelect.innerHTML = '<option value="">Tous les évènements</option>';
+            events.forEach(ev => {
+                const option = document.createElement('option');
+                option.value = ev;
+                option.textContent = ev;
+                eventSelect.appendChild(option);
+            });
+        }
     }
 
     applyFilters() {
@@ -556,8 +565,15 @@ class AirtableDashboard {
                 match = false;
             }
 
-            if (eventFilter && row['Show'] !== eventFilter) {
-                match = false;
+            // Filtrage strict mais flexible sur les chaînes de caractères pour les Événements
+            if (eventFilter) {
+                let rowEvent = '';
+                if (row['Show']) {
+                    rowEvent = Array.isArray(row['Show']) ? row['Show'].join(', ') : String(row['Show']);
+                }
+                if (rowEvent.trim() !== eventFilter) {
+                    match = false;
+                }
             }
 
             if (row['_parsedDate']) {
@@ -576,20 +592,20 @@ class AirtableDashboard {
                 } else if (dateStartFilter) {
                     const filterDate = new Date(dateStartFilter);
                     filterDate.setHours(0, 0, 0, 0);
-                    // Match EXACT date if only Start is provided
+                    // Correspondance date EXACTE si seule la date de début est fournie
                     if (rowDate.getTime() !== filterDate.getTime()) {
                         match = false;
                     }
                 } else if (dateEndFilter) {
                     const filterDate = new Date(dateEndFilter);
                     filterDate.setHours(0, 0, 0, 0);
-                    // Match EXACT date if only End is provided
+                    // Correspondance date EXACTE si seule la date de fin est fournie
                     if (rowDate.getTime() !== filterDate.getTime()) {
                         match = false;
                     }
                 }
             } else if (dateStartFilter || dateEndFilter) {
-                // If there's no date on the row but a filter is active, it's not a match
+                // S'il n'y a pas de date sur la ligne mais qu'un filtre est actif, pas de correspondance
                 match = false;
             }
 
@@ -597,21 +613,39 @@ class AirtableDashboard {
         });
 
         let sumOr = 0, sumPlatinium = 0, sumArgent = 0;
+        let sumQuotaOr = 0, sumQuotaPlatinium = 0, sumQuotaArgent = 0;
+
         this.filteredData.forEach(row => {
-            sumOr += (row['Total - Ventes - Or'] || 0) + (row['Total - Quota - Or'] || 0);
-            sumPlatinium += (row['Total - Ventes - Platinium'] || 0) + (row['Total - Quota - Platinium'] || 0);
-            sumArgent += (row['Total - Ventes - Argent'] || 0) + (row['Total - Quota - Argent'] || 0);
+            sumOr += (row['Total - Ventes - Or'] || 0);
+            sumQuotaOr += (row['Total - Quota - Or'] || 0);
+
+            sumPlatinium += (row['Total - Ventes - Platinium'] || 0);
+            sumQuotaPlatinium += (row['Total - Quota - Platinium'] || 0);
+
+            sumArgent += (row['Total - Ventes - Argent'] || 0);
+            sumQuotaArgent += (row['Total - Quota - Argent'] || 0);
         });
 
         const tableContainer = document.getElementById('tableContainer');
-        if (sumOr === 0) tableContainer.classList.add('hide-or');
-        else tableContainer.classList.remove('hide-or');
 
-        if (sumPlatinium === 0) tableContainer.classList.add('hide-platinium');
-        else tableContainer.classList.remove('hide-platinium');
+        // Masquage conditionnel des catégories (Or, Platinium, Argent) si les ventes ET les quotas sont à 0
+        if (sumOr === 0 && sumQuotaOr === 0) {
+            tableContainer.classList.add('hide-or');
+        } else {
+            tableContainer.classList.remove('hide-or');
+        }
 
-        if (sumArgent === 0) tableContainer.classList.add('hide-argent');
-        else tableContainer.classList.remove('hide-argent');
+        if (sumPlatinium === 0 && sumQuotaPlatinium === 0) {
+            tableContainer.classList.add('hide-platinium');
+        } else {
+            tableContainer.classList.remove('hide-platinium');
+        }
+
+        if (sumArgent === 0 && sumQuotaArgent === 0) {
+            tableContainer.classList.add('hide-argent');
+        } else {
+            tableContainer.classList.remove('hide-argent');
+        }
 
         this.renderTableBody();
     }
@@ -653,10 +687,10 @@ class AirtableDashboard {
             }
 
             alert('Recuperation lancee avec succes ! Les donnees seront mises a jour dans environ 2 heures.');
-            // Refresh data after a short delay
+            // Rafraîchir les données après un court délai
             setTimeout(() => this.loadData(true), 3000);
         } catch (error) {
-            console.error('Recovery error:', error);
+            console.error('Erreur récupération :', error);
             alert('Erreur: ' + error.message);
         } finally {
             btn.disabled = false;
@@ -666,7 +700,7 @@ class AirtableDashboard {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Check against actual placeholders in config.js
+    // Vérifier par rapport aux emplacements réels dans config.js
     if (AIRTABLE_CONFIG.API_KEY === 'VOTRE_CLE_API' || AIRTABLE_CONFIG.BASE_ID === 'VOTRE_BASE_ID') {
         const loadingDiv = document.getElementById('loading');
         if (loadingDiv) {

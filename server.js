@@ -4,12 +4,19 @@ const basicAuth = require('express-basic-auth');
 
 const app = express();
 
-const password = process.env.DASHBOARD_PASSWORD || 'TICKET@SELLING';
+// Récupération du mot de passe depuis les variables d'environnement (par ex. sur Railway)
+const password = process.env.DASHBOARD_PASSWORD;
+
+if (!password) {
+    console.warn("ATTENTION : La variable d'environnement DASHBOARD_PASSWORD n'est pas définie. Un accès non sécurisé ou par défaut sera utilisé.");
+}
+
 app.use(basicAuth({
-    users: { 'admin': password },
+    users: { 'admin': password || 'admin' }, // Mot de passe local par défaut si manquant
     challenge: true,
     realm: 'Tableau de bord de billetterie'
 }));
+
 
 const PORT = process.env.PORT || 3000;
 
@@ -117,15 +124,15 @@ const COLUMNS_ORDER = [
 
 app.use(express.json({ limit: '50mb' }));
 
-// Enhanced in-memory cache with background refresh
+// Cache en mémoire amélioré avec rafraîchissement en arrière-plan
 let dataCache = {
     records: null,
     lastUpdate: 0,
     isUpdating: false,
-    ttl: 300000 // 5 minutes standard cache
+    ttl: 300000 // Cache standard de 5 minutes
 };
 
-// Target fields to reduce payload size and speed up Airtable response
+// Champs cibles pour réduire la taille du payload et accélérer la réponse d'Airtable
 const TARGET_FIELDS = [
     'Date',
     'Ville',
@@ -169,39 +176,39 @@ const TARGET_FIELDS = [
     'Taux de remplissage'
 ];
 
-// Proxy for Fetching Main Airtable Data
+// Proxy pour récupérer les données principales d'Airtable
 app.get('/api/data', async (req, res) => {
     try {
         const now = Date.now();
         const force = req.query.force === 'true';
 
-        // 1. If we have cache and it's valid, return it immediately
+        // 1. Si nous avons du cache et qu'il est valide, nous le renvoyons immédiatement
         if (!force && dataCache.records && dataCache.lastUpdate > 0 && (now - dataCache.lastUpdate < dataCache.ttl)) {
-            console.log('Serving valid data from cache');
+            console.log('Service des données valides depuis le cache');
             return res.json(dataCache.records);
         }
 
-        // 2. If we have stale cache AND it wasn't explicitly invalidated (lastUpdate > 0), 
-        // return it immediately AND trigger update in background.
-        // If lastUpdate === 0, it means an update just happened, so we MUST wait for fresh data.
+        // 2. Si nous avons un cache obsolète ET qu'il n'a pas été explicitement invalidé (lastUpdate > 0), 
+        // nous le renvoyons immédiatement ET déclenchons la mise à jour en arrière-plan.
+        // Si lastUpdate === 0, cela signifie qu'une mise à jour vient d'avoir lieu, nous DEVONS attendre les données fraîches.
         if (!force && dataCache.records && dataCache.lastUpdate > 0 && !dataCache.isUpdating) {
-            console.log('Serving stale data, background refresh triggered...');
-            refreshDataInBackground(); // Start refresh but don't await it
+            console.log('Service des données obsolètes, rafraîchissement en arrière-plan déclenché...');
+            refreshDataInBackground(); // Démarrer le rafraîchissement sans l'attendre
             return res.json(dataCache.records);
         }
 
-        // 3. If no cache or forced refresh, we must wait for fresh data
+        // 3. S'il n'y a pas de cache ou si le rafraîchissement est forcé, nous devons attendre les données fraîches
         const freshData = await refreshDataInBackground();
         res.json(freshData);
 
     } catch (error) {
-        console.error('Data proxy error:', error);
+        console.error('Erreur proxy données:', error);
         res.status(500).json({ error: error.message });
     }
 });
 
 /**
- * Optimized background fetching function with field filtering
+ * Fonction de récupération optimisée en arrière-plan avec filtrage des champs
  */
 async function refreshDataInBackground() {
     if (dataCache.isUpdating) return dataCache.records;
@@ -246,15 +253,15 @@ async function refreshDataInBackground() {
             offset = data.offset;
         } while (offset);
 
-        // Update global cache
+        // Mise à jour du cache global
         dataCache.records = allRecords;
         dataCache.lastUpdate = Date.now();
-        console.log(`[Cache Update] Success. ${allRecords.length} records in ${(Date.now() - startTime) / 1000}s`);
+        console.log(`[Mise à jour Cache] Succès. ${allRecords.length} enregistrements en ${(Date.now() - startTime) / 1000}s`);
 
         return allRecords;
     } catch (err) {
-        console.error('[Cache Update] FAILED:', err.message);
-        // If it was the first load, propagate error. If background refresh, just log.
+        console.error('[Mise à jour Cache] ÉCHEC:', err.message);
+        // S'il s'agissait du premier chargement, propager l'erreur. Si rafraîchissement arrière-plan, juste logger.
         if (!dataCache.records) throw err;
         return dataCache.records;
     } finally {
@@ -262,7 +269,7 @@ async function refreshDataInBackground() {
     }
 }
 
-// Proxy for Listing Backups from Airtable "Backup Data" table
+// Proxy pour lister les sauvegardes de la table Airtable "Backup Data"
 app.get('/api/list-backups', async (req, res) => {
     try {
         const apiKey = process.env.AIRTABLE_API_KEY || '';
@@ -270,7 +277,7 @@ app.get('/api/list-backups', async (req, res) => {
         const tableName = 'Backup Data';
 
         if (!apiKey || !baseId) {
-            return res.status(500).json({ error: 'Server configuration missing API Key or Base ID' });
+            return res.status(500).json({ error: 'Configuration serveur manquante : Clé API ou Base ID' });
         }
 
         const url = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}?sort%5B0%5D%5Bfield%5D=Date&sort%5B0%5D%5Bdirection%5D=desc&maxRecords=20`;
@@ -284,16 +291,16 @@ app.get('/api/list-backups', async (req, res) => {
 
         if (!response.ok) {
             const errorText = await response.text();
-            console.error(`Airtable list error (${response.status}):`, errorText);
+            console.error(`Erreur liste Airtable (${response.status}):`, errorText);
             return res.status(response.status).json({
-                error: 'Airtable list-backups error',
+                error: 'Erreur Airtable list-backups',
                 status: response.status,
                 details: errorText
             });
         }
 
         const data = await response.json();
-        // Map to simpler format for frontend
+        // Mapper vers un format plus simple pour le frontend
         const backups = data.records.map(record => ({
             id: record.id,
             date: record.fields['Date'],
@@ -302,24 +309,24 @@ app.get('/api/list-backups', async (req, res) => {
 
         res.json(backups);
     } catch (error) {
-        console.error('List backups proxy error:', error);
-        res.status(500).json({ error: error.message || 'Internal Server Error' });
+        console.error('Erreur proxy liste sauvegardes:', error);
+        res.status(500).json({ error: error.message || 'Erreur Interne du Serveur' });
     }
 });
 
-// Proxy for Triggering Restoration (POST)
+// Proxy pour déclencher la restauration (POST)
 app.post('/api/trigger-restore', async (req, res) => {
     try {
         const { recordId } = req.body;
         if (!recordId) {
-            return res.status(400).json({ error: 'recordId is required' });
+            return res.status(400).json({ error: 'recordId est requis' });
         }
 
         const webhookUrl = 'https://n8n.srv1189694.hstgr.cloud/webhook/gestion-billetterie-restaure-backup';
 
         const urlWithParams = `${webhookUrl}?recordId=${recordId}`;
 
-        console.log(`Triggering Restore for RecordID: ${recordId}`);
+        console.log(`Déclenchement de la restauration pour le RecordID: ${recordId}`);
 
         const response = await fetch(urlWithParams, {
             method: 'POST',
@@ -331,32 +338,32 @@ app.post('/api/trigger-restore', async (req, res) => {
 
         if (!response.ok) {
             const errorText = await response.text();
-            console.error(`n8n restore error (${response.status}):`, errorText);
+            console.error(`Erreur restauration n8n (${response.status}):`, errorText);
             return res.status(response.status).json({
-                error: 'n8n restoration error',
+                error: 'Erreur de restauration n8n',
                 status: response.status,
                 details: errorText
             });
         }
 
-        // IMPORTANT: Clear the data cache since table is being restored
+        // IMPORTANT : Effacer le cache des données car la table est en cours de restauration
         dataCache.lastUpdate = 0;
 
         const result = await response.text();
         res.json({ status: 'success', details: result });
     } catch (error) {
-        console.error('Trigger restore proxy error:', error);
-        res.status(500).json({ error: error.message || 'Internal Server Error' });
+        console.error('Erreur proxy déclenchement restauration:', error);
+        res.status(500).json({ error: error.message || 'Erreur Interne du Serveur' });
     }
 });
 
-// Proxy for Triggering Recovery (POST) - dual n8n connection (Fever & Regiondo)
+// Proxy pour déclencher la récupération (POST) - double connexion n8n (Fever & Regiondo)
 app.post('/api/trigger-recovery', async (req, res) => {
     try {
         const webhookFever = 'https://n8n.srv1189694.hstgr.cloud/webhook/gestion-billetterie-actualiser-donnees-fever';
         const webhookRegiondo = 'https://n8n.srv1189694.hstgr.cloud/webhook/gestion-billetterie-actualiser-donnees-regiondo';
 
-        console.log(`Triggering Dual Data Recovery via n8n (Fever & Regiondo)...`);
+        console.log(`Déclenchement de la récupération double des données via n8n (Fever & Regiondo)...`);
 
         const [responseFever, responseRegiondo] = await Promise.all([
             fetch(webhookFever, {
@@ -372,9 +379,9 @@ app.post('/api/trigger-recovery', async (req, res) => {
         ]);
 
         if (!responseFever.ok || !responseRegiondo.ok) {
-            console.error(`n8n recovery error: Fever=${responseFever.status}, Regiondo=${responseRegiondo.status}`);
+            console.error(`Erreur récupération n8n : Fever=${responseFever.status}, Regiondo=${responseRegiondo.status}`);
             return res.status(500).json({
-                error: 'n8n recovery error',
+                error: 'Erreur récupération n8n',
                 details: {
                     fever: responseFever.status,
                     regiondo: responseRegiondo.status
@@ -382,17 +389,17 @@ app.post('/api/trigger-recovery', async (req, res) => {
             });
         }
 
-        // Invalidate cache since new data is being recovered
+        // Invalider le cache car de nouvelles données sont en cours de récupération
         dataCache.lastUpdate = 0;
 
-        res.json({ status: 'success', details: 'Dual recovery triggered' });
+        res.json({ status: 'success', details: 'Double récupération déclenchée' });
     } catch (error) {
-        console.error('Trigger recovery proxy error:', error);
-        res.status(500).json({ error: error.message || 'Internal Server Error' });
+        console.error('Erreur proxy déclenchement récupération:', error);
+        res.status(500).json({ error: error.message || 'Erreur Interne du Serveur' });
     }
 });
 
-// Proxy for Saving Snapshot (POST)
+// Proxy pour enregistrer un instantané (POST)
 app.post('/api/save-snapshot', async (req, res) => {
     try {
         const webhookUrl = 'https://n8n.srv1189694.hstgr.cloud/webhook/gestion-billetterie-backup';
@@ -407,9 +414,9 @@ app.post('/api/save-snapshot', async (req, res) => {
 
         if (!response.ok) {
             const errorText = await response.text();
-            console.error(`n8n error (${response.status}):`, errorText);
+            console.error(`Erreur n8n (${response.status}):`, errorText);
             return res.status(response.status).json({
-                error: 'n8n webhook error',
+                error: 'Erreur webhook n8n',
                 status: response.status,
                 details: errorText
             });
@@ -418,12 +425,12 @@ app.post('/api/save-snapshot', async (req, res) => {
         const result = await response.json();
         res.json(result);
     } catch (error) {
-        console.error('Save snapshot proxy error:', error);
-        res.status(500).json({ error: error.message || 'Internal Server Error' });
+        console.error('Erreur proxy enregistrement instantané:', error);
+        res.status(500).json({ error: error.message || 'Erreur Interne du Serveur' });
     }
 });
 
-// Proxy for Updating Airtable Record
+// Proxy pour mettre à jour un enregistrement Airtable
 app.patch('/api/update-record', async (req, res) => {
     try {
         const { recordId, fieldName, value } = req.body;
@@ -431,17 +438,17 @@ app.patch('/api/update-record', async (req, res) => {
         const baseId = process.env.AIRTABLE_BASE_ID || '';
         const tableName = process.env.AIRTABLE_TABLE_NAME || 'Allocation billetterie';
 
-        console.log(`Update Request: Record=${recordId}, Field="${fieldName}", Value=${value}`);
+        console.log(`Demande de mise à jour : Record=${recordId}, Field="${fieldName}", Value=${value}`);
 
         if (!apiKey || !baseId) {
-            console.error('Missing Airtable credentials in environment variables');
-            return res.status(500).json({ error: 'Server configuration missing API Key or Base ID' });
+            console.error('Identifiants Airtable manquants dans les variables d\'environnement');
+            return res.status(500).json({ error: 'Configuration serveur manquante : Clé API ou Base ID' });
         }
 
         const url = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}/${recordId}`;
 
-        console.log(`[PROXIED PATCH] Sending to Airtable: ${url}`);
-        console.log(`[PROXIED PATCH] Payload:`, JSON.stringify({ fields: { [fieldName]: value } }));
+        console.log(`[PATCH PROXY] Envoi vers Airtable : ${url}`);
+        console.log(`[PATCH PROXY] Payload :`, JSON.stringify({ fields: { [fieldName]: value } }));
 
         const response = await fetch(url, {
             method: 'PATCH',
@@ -459,28 +466,28 @@ app.patch('/api/update-record', async (req, res) => {
         const responseData = await response.json();
 
         if (!response.ok) {
-            console.error(`[PROXIED PATCH] FAILED (${response.status}):`, JSON.stringify(responseData));
+            console.error(`[PATCH PROXY] ÉCHEC (${response.status}) :`, JSON.stringify(responseData));
             return res.status(response.status).json({
-                error: 'Airtable update error',
+                error: 'Erreur mise à jour Airtable',
                 status: response.status,
                 details: responseData
             });
         }
 
-        console.log('[PROXIED PATCH] SUCCESS from Airtable:', JSON.stringify(responseData));
+        console.log('[PATCH PROXY] SUCCÈS depuis Airtable :', JSON.stringify(responseData));
 
-        // Clear main data cache so the dashboard sees the new value on next refresh
+        // Effacer le cache principal des données pour que le tableau affiche la nouvelle valeur au prochain rafraîchissement
         dataCache.lastUpdate = 0;
 
         res.json(responseData);
     } catch (error) {
-        console.error('Update record proxy error:', error);
-        res.status(500).json({ error: error.message || 'Internal Server Error' });
+        console.error('Erreur proxy mise à jour enregistrement:', error);
+        res.status(500).json({ error: error.message || 'Erreur Interne du Serveur' });
     }
 });
 
 app.use(express.static(path.join(__dirname)));
 
 app.listen(PORT, function () {
-    console.log('Server running on port ' + PORT);
+    console.log('Serveur démarré sur le port ' + PORT);
 });

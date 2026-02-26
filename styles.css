@@ -64,7 +64,7 @@ body {
 }
 
 .btn-refresh {
-    /* Deprecated but kept for compatibility if needed */
+    /* Obsolète mais conservé pour compatibilité si nécessaire */
     display: none;
 }
 
@@ -197,7 +197,7 @@ body {
     font-size: 12px;
 }
 
-/* Table Professionalism */
+/* Professionnalisme du Tableau */
 .table-container {
     overflow-x: auto;
     border: 1px solid var(--border-color);
@@ -219,7 +219,7 @@ thead {
     z-index: 10;
     background: white;
     will-change: transform;
-    /* Hardware acceleration */
+    /* Accélération matérielle */
 }
 
 th {
@@ -230,7 +230,7 @@ th {
     background: white;
 }
 
-/* Header Levels (Specific adjustments) */
+/* Niveaux d'en-tête (ajustements spécifiques) */
 .header-level-1 th {
     background: #f1f5f9;
     font-size: 0.8rem;
@@ -268,10 +268,10 @@ th {
 
 .th-sticky-ville {
     left: 85px;
-    /* Adjust based on Date column width */
+    /* Ajuster en fonction de la largeur de la colonne Date */
 }
 
-/* Specific Column Colors - Subtler */
+/* Couleurs Spécifiques des Colonnes - Plus subtiles */
 .th-or {
     background: #fffbeb !important;
 }
@@ -372,7 +372,7 @@ tbody td {
     font-weight: bold;
 }
 
-/* Sticky Columns */
+/* Colonnes Fixes (Sticky) */
 .td-sticky {
     position: sticky;
     left: 0;
@@ -380,17 +380,17 @@ tbody td {
     z-index: 5;
     border-right: 1px solid #000;
     will-change: transform;
-    /* Hardware acceleration */
+    /* Accélération matérielle */
 }
 
 tbody tr:nth-child(even) .td-sticky {
     background: #f8fafc;
-    /* Match row stripe */
+    /* Correspondance rayure de ligne */
 }
 
 tbody tr:hover .td-sticky {
     background: #f1f5f9;
-    /* Match hover */
+    /* Correspondance survol */
 }
 
 .td-sticky-ville {
@@ -400,8 +400,8 @@ tbody tr:hover .td-sticky {
 .th-sticky-event,
 .td-sticky-event {
     left: 200px;
-    /* Adjust according to Ville width */
-    /* Add a subtle right border shadow to separate sticky columns from scrolling content */
+    /* Ajuster selon la largeur de la Ville */
+    /* Ajouter une ombre de bordure droite subtile pour séparer les colonnes fixes du contenu défilant */
     box-shadow: 2px 0 4px -2px rgba(0, 0, 0, 0.1);
 }
 
@@ -413,7 +413,7 @@ tbody tr:hover .td-sticky {
     color: var(--text-secondary);
 }
 
-/* Dynamic Hide Categories */
+/* Masquage Dynamique des Catégories */
 .hide-or .th-or,
 .hide-or .td-or {
     display: none !important;
@@ -443,7 +443,7 @@ tbody tr:hover .td-sticky {
     background: white;
 }
 
-/* Delta Bar Polish */
+/* Raffinement de la Barre Delta */
 .td-delta {
     font-weight: normal;
     position: relative;
@@ -458,7 +458,7 @@ tbody tr:hover .td-sticky {
     top: 0;
     bottom: 0;
     background: #dcfce7;
-    /* Soft Green */
+    /* Vert Doux */
     z-index: 0;
 }
 
@@ -515,7 +515,7 @@ tbody tr:hover .td-sticky {
     font-size: 0.75rem;
     font-weight: 600;
     color: #166534;
-    /* Dark Green Text */
+    /* Texte Vert Foncé */
 }
 
 .td-quota {
@@ -538,7 +538,7 @@ tbody tr:hover .td-sticky {
 }
 
 
-/* Sidebar Styles */
+/* Styles de la Barre Latérale (Sidebar) */
 .sidebar {
     position: fixed;
     top: 0;
@@ -633,9 +633,9 @@ tbody tr:hover .td-sticky {
     display: block;
 }
 
-/* Updated Header & Buttons */
+/* En-tête mis à jour & Boutons */
 
-/* Button Refinements */
+/* Raffinement des Boutons */
 button {
     font-family: 'Inter', sans-serif;
 }
@@ -672,7 +672,7 @@ button {
 
 .btn-recovery:hover {
     background: #1e293b;
-    /* Slightly lighter than primary */
+    /* Légèrement plus clair que le primaire */
     transform: translateY(-1px);
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
@@ -745,7 +745,7 @@ button {
     text-align: center;
 }
 
-/* Sidebar History List */
+/* Liste d'Historique de la Barre Latérale */
 .recent-list {
     display: flex;
     flex-direction: column;
