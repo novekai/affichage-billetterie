@@ -281,7 +281,7 @@ class AirtableDashboard {
 
             tr.appendChild(this.createCell(row['Date'] || '-', 'td-date td-sticky'));
             tr.appendChild(this.createCell(row['Ville'] || '-', 'td-ville td-sticky td-sticky-ville'));
-            tr.appendChild(this.createCell(row['Show'] || '-', 'td-event td-sticky td-sticky-event'));
+            tr.appendChild(this.createCell(row['Show'] || '-', 'td-event'));
 
             // Re-création de la boucle complète pour s'assurer qu'elle est complète
             tr.appendChild(this.createEditableCell(row['Ventes - Fever - Or'], 'Ventes - Fever - Or', row.id, 'td-or'));

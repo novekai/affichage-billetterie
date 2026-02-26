@@ -403,28 +403,20 @@ tbody td {
 }
 
 tbody tr:nth-child(even) .td-sticky,
-tbody tr:nth-child(even) .td-sticky-ville,
-tbody tr:nth-child(even) .td-sticky-event {
+tbody tr:nth-child(even) .td-sticky-ville {
     background: #f8fafc;
     /* Correspondance rayure de ligne */
 }
 
 tbody tr:hover .td-sticky,
-tbody tr:hover .td-sticky-ville,
-tbody tr:hover .td-sticky-event {
+tbody tr:hover .td-sticky-ville {
     background: #f1f5f9;
     /* Correspondance survol */
 }
 
 /* Déjà géré par les règles groupées ci-dessus */
 
-.th-sticky-event,
-.td-sticky-event {
-    left: 210px;
-    /* Largeur Date (90) + Largeur Ville (120) */
-    /* Ajouter une ombre de bordure droite subtile pour séparer les colonnes fixes du contenu défilant */
-    box-shadow: 2px 0 4px -2px rgba(0, 0, 0, 0.1);
-}
+/* La colonne événement n'est plus sticky */
 
 .td-date {
     font-weight: 500;
