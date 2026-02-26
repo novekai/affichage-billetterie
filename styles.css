@@ -266,11 +266,7 @@ th {
     /* Hardware acceleration */
 }
 
-.th-sticky-ville,
-.td-sticky-ville {
-    left: 90px;
-    /* Largeur de la colonne Date */
-}
+/* Offsets déplacés plus bas pour l'ordre de priorité */
 
 /* Couleurs Spécifiques des Colonnes - Plus subtiles */
 .th-or {
@@ -400,6 +396,13 @@ tbody td {
 .th-sticky-event {
     width: 180px;
     min-width: 180px;
+}
+
+/* Offsets Spécifiques (après les définitions générales pour priorité) */
+.th-sticky-ville,
+.td-sticky-ville {
+    left: 90px !important;
+    /* Force l'offset par rapport au left:0 général */
 }
 
 tbody tr:nth-child(even) .td-sticky,
