@@ -406,20 +406,28 @@ tbody td {
 }
 
 tbody tr:nth-child(even) .td-sticky,
-tbody tr:nth-child(even) .td-sticky-ville {
+tbody tr:nth-child(even) .td-sticky-ville,
+tbody tr:nth-child(even) .td-sticky-event {
     background: #f8fafc;
     /* Correspondance rayure de ligne */
 }
 
 tbody tr:hover .td-sticky,
-tbody tr:hover .td-sticky-ville {
+tbody tr:hover .td-sticky-ville,
+tbody tr:hover .td-sticky-event {
     background: #f1f5f9;
     /* Correspondance survol */
 }
 
 /* Déjà géré par les règles groupées ci-dessus */
 
-/* La colonne événement n'est plus sticky */
+.th-sticky-event,
+.td-sticky-event {
+    left: 210px !important;
+    /* Largeur Date (90) + Largeur Ville (120) */
+    /* Ajouter une ombre de bordure droite subtile pour séparer les colonnes fixes du contenu défilant */
+    box-shadow: 2px 0 4px -2px rgba(0, 0, 0, 0.1);
+}
 
 .td-date {
     font-weight: 500;

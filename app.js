@@ -35,6 +35,7 @@ class AirtableDashboard {
 
         // Filtres
         document.getElementById('filterVille').addEventListener('change', () => this.applyFilters());
+        document.getElementById('filterEvent').addEventListener('change', () => this.applyFilters());
         document.getElementById('filterDateStart').addEventListener('change', () => this.applyFilters());
         document.getElementById('filterDateEnd').addEventListener('change', () => this.applyFilters());
     }
@@ -253,6 +254,13 @@ class AirtableDashboard {
                 row['_parsedDate'] = this.parseAirtableDate(row['Date']);
             }
 
+            // Pré-calculer le nom d'affichage de l'événement
+            if (row['Show']) {
+                row._displayEvent = (Array.isArray(row['Show']) ? row['Show'].join(', ') : String(row['Show'])).trim();
+            } else {
+                row._displayEvent = '';
+            }
+
             return row;
         });
     }
@@ -281,7 +289,7 @@ class AirtableDashboard {
 
             tr.appendChild(this.createCell(row['Date'] || '-', 'td-date td-sticky'));
             tr.appendChild(this.createCell(row['Ville'] || '-', 'td-ville td-sticky td-sticky-ville'));
-            tr.appendChild(this.createCell(row['Show'] || '-', 'td-event'));
+            tr.appendChild(this.createCell(row['Show'] || '-', 'td-event td-sticky td-sticky-event'));
 
             // Re-création de la boucle complète pour s'assurer qu'elle est complète
             tr.appendChild(this.createEditableCell(row['Ventes - Fever - Or'], 'Ventes - Fever - Or', row.id, 'td-or'));
@@ -521,15 +529,8 @@ class AirtableDashboard {
     populateFilters() {
         const villes = [...new Set(this.data.map(r => r['Ville']).filter(Boolean))].sort();
 
-        // Extraction robuste pour le champ Show (Événement) qui peut être un tableau (Linked Record Airtable)
-        let allEvents = [];
-        this.data.forEach(r => {
-            if (r['Show']) {
-                const evStr = Array.isArray(r['Show']) ? r['Show'].join(', ') : String(r['Show']);
-                allEvents.push(evStr.trim());
-            }
-        });
-        const events = [...new Set(allEvents.filter(Boolean))].sort();
+        // Utiliser les valeurs pré-calculées
+        const events = [...new Set(this.data.map(r => r._displayEvent).filter(Boolean))].sort();
 
         const villeSelect = document.getElementById('filterVille');
         villeSelect.innerHTML = '<option value="">Toutes les villes</option>';
@@ -565,15 +566,9 @@ class AirtableDashboard {
                 match = false;
             }
 
-            // Filtrage strict mais flexible sur les chaînes de caractères pour les Événements
-            if (eventFilter) {
-                let rowEvent = '';
-                if (row['Show']) {
-                    rowEvent = Array.isArray(row['Show']) ? row['Show'].join(', ') : String(row['Show']);
-                }
-                if (rowEvent.trim() !== eventFilter) {
-                    match = false;
-                }
+            // Filtrage rapide utilisant les valeurs pré-calculées
+            if (eventFilter && row._displayEvent !== eventFilter) {
+                match = false;
             }
 
             if (row['_parsedDate']) {
