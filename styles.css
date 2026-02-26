@@ -266,9 +266,10 @@ th {
     /* Hardware acceleration */
 }
 
-.th-sticky-ville {
-    left: 85px;
-    /* Ajuster en fonction de la largeur de la colonne Date */
+.th-sticky-ville,
+.td-sticky-ville {
+    left: 90px;
+    /* Largeur de la colonne Date */
 }
 
 /* Couleurs Spécifiques des Colonnes - Plus subtiles */
@@ -383,31 +384,50 @@ tbody td {
     /* Accélération matérielle */
 }
 
-tbody tr:nth-child(even) .td-sticky {
+.td-date,
+.th-sticky-date {
+    width: 90px;
+    min-width: 90px;
+}
+
+.td-ville,
+.th-sticky-ville {
+    width: 120px;
+    min-width: 120px;
+}
+
+.td-event,
+.th-sticky-event {
+    width: 180px;
+    min-width: 180px;
+}
+
+tbody tr:nth-child(even) .td-sticky,
+tbody tr:nth-child(even) .td-sticky-ville,
+tbody tr:nth-child(even) .td-sticky-event {
     background: #f8fafc;
     /* Correspondance rayure de ligne */
 }
 
-tbody tr:hover .td-sticky {
+tbody tr:hover .td-sticky,
+tbody tr:hover .td-sticky-ville,
+tbody tr:hover .td-sticky-event {
     background: #f1f5f9;
     /* Correspondance survol */
 }
 
-.td-sticky-ville {
-    left: 85px;
-}
+/* Déjà géré par les règles groupées ci-dessus */
 
 .th-sticky-event,
 .td-sticky-event {
-    left: 200px;
-    /* Ajuster selon la largeur de la Ville */
+    left: 210px;
+    /* Largeur Date (90) + Largeur Ville (120) */
     /* Ajouter une ombre de bordure droite subtile pour séparer les colonnes fixes du contenu défilant */
     box-shadow: 2px 0 4px -2px rgba(0, 0, 0, 0.1);
 }
 
 .td-date {
     font-weight: 500;
-    min-width: 85px;
     text-align: left;
     padding-left: 3px;
     color: var(--text-secondary);
@@ -433,7 +453,6 @@ tbody tr:hover .td-sticky {
     font-weight: normal;
     text-align: left;
     padding-left: 3px;
-    min-width: 60px;
 }
 
 .td-or,
