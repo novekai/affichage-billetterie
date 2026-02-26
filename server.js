@@ -1,7 +1,16 @@
 const express = require('express');
 const path = require('path');
+const basicAuth = require('express-basic-auth');
 
 const app = express();
+
+const password = process.env.DASHBOARD_PASSWORD || 'TICKET@SELLING';
+app.use(basicAuth({
+    users: { 'admin': password },
+    challenge: true,
+    realm: 'Tableau de bord de billetterie'
+}));
+
 const PORT = process.env.PORT || 3000;
 
 app.get('/config.js', (req, res) => {
@@ -19,6 +28,7 @@ const AIRTABLE_CONFIG = {
 const COLUMN_CONFIG = {
     'Date': { type: 'date', group: 'main' },
     'Ville': { type: 'text', group: 'main' },
+    'Show': { type: 'text', group: 'main' },
     'Ventes - Fever - Or': { type: 'number', group: 'or' },
     'Quota - Fever - Or': { type: 'quota', group: 'or' },
     'Ventes - Regiondo - Or': { type: 'number', group: 'or' },
@@ -61,6 +71,7 @@ const COLUMN_CONFIG = {
 const COLUMNS_ORDER = [
     'Date',
     'Ville',
+    'Show',
     'Ventes - Fever - Or',
     'Quota - Fever - Or',
     'Ventes - Regiondo - Or',
@@ -118,6 +129,7 @@ let dataCache = {
 const TARGET_FIELDS = [
     'Date',
     'Ville',
+    'Show',
     'Ventes - Fever - Or',
     'Quota - Fever - Or',
     'Ventes - Regiondo - Or',

@@ -30,6 +30,12 @@
                 </select>
             </div>
             <div class="filter-item">
+                <label for="filterEvent">Événement</label>
+                <select id="filterEvent" class="filter-input-centered">
+                    <option value="">Tous les évènements</option>
+                </select>
+            </div>
+            <div class="filter-item">
                 <label for="filterDateStart">Du</label>
                 <input type="date" id="filterDateStart" class="filter-input-centered">
             </div>
@@ -78,8 +84,9 @@
             <table id="dataTable">
                 <thead>
                     <tr id="headerRow1" class="header-level-1">
-                        <th rowspan="3" class="th-main th-sticky">Date</th>
+                        <th rowspan="3" class="th-main th-sticky th-sticky-date">Date</th>
                         <th rowspan="3" class="th-main th-sticky th-sticky-ville">Ville</th>
+                        <th rowspan="3" class="th-main th-sticky th-sticky-event">Événement</th>
                         <th colspan="9" class="th-category th-or">Catégorie Or</th>
                         <th colspan="9" class="th-category th-platinium">Catégorie Platinium</th>
                         <th colspan="9" class="th-category th-argent">Catégorie Argent</th>

@@ -281,6 +281,7 @@ class AirtableDashboard {
 
             tr.appendChild(this.createCell(row['Date'] || '-', 'td-date td-sticky'));
             tr.appendChild(this.createCell(row['Ville'] || '-', 'td-ville td-sticky td-sticky-ville'));
+            tr.appendChild(this.createCell(row['Show'] || '-', 'td-event td-sticky td-sticky-event'));
             // ... truncated cells ...
             // (Note: I will replace the whole loop content for completeness if needed, but let's see if fragment works better)
 
@@ -521,6 +522,7 @@ class AirtableDashboard {
 
     populateFilters() {
         const villes = [...new Set(this.data.map(r => r['Ville']).filter(Boolean))].sort();
+        const events = [...new Set(this.data.map(r => r['Show']).filter(Boolean))].sort();
 
         const villeSelect = document.getElementById('filterVille');
         villeSelect.innerHTML = '<option value="">Toutes les villes</option>';
@@ -530,10 +532,20 @@ class AirtableDashboard {
             option.textContent = ville;
             villeSelect.appendChild(option);
         });
+
+        const eventSelect = document.getElementById('filterEvent');
+        eventSelect.innerHTML = '<option value="">Tous les évènements</option>';
+        events.forEach(ev => {
+            const option = document.createElement('option');
+            option.value = ev;
+            option.textContent = ev;
+            eventSelect.appendChild(option);
+        });
     }
 
     applyFilters() {
         const villeFilter = document.getElementById('filterVille').value;
+        const eventFilter = document.getElementById('filterEvent').value;
         const dateStartFilter = document.getElementById('filterDateStart').value;
         const dateEndFilter = document.getElementById('filterDateEnd').value;
 
@@ -541,6 +553,10 @@ class AirtableDashboard {
             let match = true;
 
             if (villeFilter && row['Ville'] !== villeFilter) {
+                match = false;
+            }
+
+            if (eventFilter && row['Show'] !== eventFilter) {
                 match = false;
             }
 
@@ -579,6 +595,23 @@ class AirtableDashboard {
 
             return match;
         });
+
+        let sumOr = 0, sumPlatinium = 0, sumArgent = 0;
+        this.filteredData.forEach(row => {
+            sumOr += (row['Total - Ventes - Or'] || 0) + (row['Total - Quota - Or'] || 0);
+            sumPlatinium += (row['Total - Ventes - Platinium'] || 0) + (row['Total - Quota - Platinium'] || 0);
+            sumArgent += (row['Total - Ventes - Argent'] || 0) + (row['Total - Quota - Argent'] || 0);
+        });
+
+        const tableContainer = document.getElementById('tableContainer');
+        if (sumOr === 0) tableContainer.classList.add('hide-or');
+        else tableContainer.classList.remove('hide-or');
+
+        if (sumPlatinium === 0) tableContainer.classList.add('hide-platinium');
+        else tableContainer.classList.remove('hide-platinium');
+
+        if (sumArgent === 0) tableContainer.classList.add('hide-argent');
+        else tableContainer.classList.remove('hide-argent');
 
         this.renderTableBody();
     }

@@ -397,12 +397,36 @@ tbody tr:hover .td-sticky {
     left: 85px;
 }
 
+.th-sticky-event,
+.td-sticky-event {
+    left: 200px;
+    /* Adjust according to Ville width */
+    /* Add a subtle right border shadow to separate sticky columns from scrolling content */
+    box-shadow: 2px 0 4px -2px rgba(0, 0, 0, 0.1);
+}
+
 .td-date {
     font-weight: 500;
     min-width: 85px;
     text-align: left;
     padding-left: 3px;
     color: var(--text-secondary);
+}
+
+/* Dynamic Hide Categories */
+.hide-or .th-or,
+.hide-or .td-or {
+    display: none !important;
+}
+
+.hide-platinium .th-platinium,
+.hide-platinium .td-platinium {
+    display: none !important;
+}
+
+.hide-argent .th-argent,
+.hide-argent .td-argent {
+    display: none !important;
 }
 
 .td-ville {
