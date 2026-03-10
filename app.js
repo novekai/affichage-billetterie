@@ -4,6 +4,8 @@ class AirtableDashboard {
         this.filteredData = [];
         this.isEditing = false;
         this.isLoading = false;
+        this.lastDataUpdate = null;
+        this.recoveryRefreshTimeout = null;
         this.init();
     }
 
@@ -34,7 +36,12 @@ class AirtableDashboard {
         document.getElementById('triggerRecoveryBtn').addEventListener('click', () => this.triggerRecovery());
 
         // Filtres
-        document.getElementById('filterVille').addEventListener('change', () => this.applyFilters());
+        document.getElementById('filterVille').addEventListener('change', () => {
+            const villeFilter = document.getElementById('filterVille').value;
+            const eventFilter = document.getElementById('filterEvent').value;
+            this.populateEventOptions(villeFilter, eventFilter);
+            this.applyFilters();
+        });
         document.getElementById('filterEvent').addEventListener('change', () => this.applyFilters());
         document.getElementById('filterDateStart').addEventListener('change', () => this.applyFilters());
         document.getElementById('filterDateEnd').addEventListener('change', () => this.applyFilters());
@@ -207,15 +214,13 @@ class AirtableDashboard {
         this.hideError();
 
         try {
-            const records = await this.fetchAirtableData(force);
-            this.data = this.transformData(records);
+            const payload = await this.fetchAirtableData(force);
+            this.lastDataUpdate = payload.lastUpdate ? new Date(payload.lastUpdate) : null;
+            this.data = this.sortRowsByDate(this.transformData(payload.records));
             this.filteredData = [...this.data];
-
-            if (document.getElementById('filterVille').options.length <= 1) {
-                this.populateFilters();
-            }
-
+            this.populateFilters();
             this.applyFilters();
+            this.updateLastUpdateDisplay();
 
             if (!silent) this.showLoading(false);
             document.getElementById('tableContainer').style.display = 'block';
@@ -239,7 +244,19 @@ class AirtableDashboard {
             throw new Error(errorData.error || `Erreur serveur: ${response.status}`);
         }
 
-        return await response.json();
+        const payload = await response.json();
+
+        if (Array.isArray(payload)) {
+            return {
+                records: payload,
+                lastUpdate: null
+            };
+        }
+
+        return {
+            records: Array.isArray(payload.records) ? payload.records : [],
+            lastUpdate: payload.lastUpdate || null
+        };
     }
 
     transformData(records) {
@@ -280,6 +297,19 @@ class AirtableDashboard {
         return isNaN(isoDate.getTime()) ? null : isoDate;
     }
 
+    sortRowsByDate(rows) {
+        return [...rows].sort((a, b) => {
+            const dateA = a._parsedDate ? a._parsedDate.getTime() : Number.MAX_SAFE_INTEGER;
+            const dateB = b._parsedDate ? b._parsedDate.getTime() : Number.MAX_SAFE_INTEGER;
+
+            if (dateA !== dateB) {
+                return dateA - dateB;
+            }
+
+            return String(a['Ville'] || '').localeCompare(String(b['Ville'] || ''), 'fr', { sensitivity: 'base' });
+        });
+    }
+
     renderTableBody() {
         const tbody = document.getElementById('tableBody');
         const fragment = document.createDocumentFragment();
@@ -289,7 +319,6 @@ class AirtableDashboard {
 
             tr.appendChild(this.createCell(row['Date'] || '-', 'td-date td-sticky'));
             tr.appendChild(this.createCell(row['Ville'] || '-', 'td-ville td-sticky td-sticky-ville'));
-            tr.appendChild(this.createCell(row['Show'] || '-', 'td-event td-sticky td-sticky-event'));
 
             // Re-création de la boucle complète pour s'assurer qu'elle est complète
             tr.appendChild(this.createEditableCell(row['Ventes - Fever - Or'], 'Ventes - Fever - Or', row.id, 'td-or'));
@@ -527,12 +556,11 @@ class AirtableDashboard {
     }
 
     populateFilters() {
-        const villes = [...new Set(this.data.map(r => r['Ville']).filter(Boolean))].sort();
-
-        // Utiliser les valeurs pré-calculées
-        const events = [...new Set(this.data.map(r => r._displayEvent).filter(Boolean))].sort();
-
         const villeSelect = document.getElementById('filterVille');
+        const eventSelect = document.getElementById('filterEvent');
+        const selectedVille = villeSelect ? villeSelect.value : '';
+        const selectedEvent = eventSelect ? eventSelect.value : '';
+        const villes = [...new Set(this.data.map(r => r['Ville']).filter(Boolean))].sort();
         villeSelect.innerHTML = '<option value="">Toutes les villes</option>';
         villes.forEach(ville => {
             const option = document.createElement('option');
@@ -541,25 +569,45 @@ class AirtableDashboard {
             villeSelect.appendChild(option);
         });
 
+        villeSelect.value = villes.includes(selectedVille) ? selectedVille : '';
+        this.populateEventOptions(villeSelect.value, selectedEvent);
+    }
+
+    populateEventOptions(villeFilter = '', selectedEvent = '') {
         const eventSelect = document.getElementById('filterEvent');
-        if (eventSelect) {
-            eventSelect.innerHTML = '<option value="">Tous les évènements</option>';
-            events.forEach(ev => {
-                const option = document.createElement('option');
-                option.value = ev;
-                option.textContent = ev;
-                eventSelect.appendChild(option);
-            });
+        if (!eventSelect) return;
+
+        const rowsForEvents = villeFilter
+            ? this.data.filter(row => row['Ville'] === villeFilter)
+            : this.data;
+
+        const events = [...new Set(rowsForEvents.map(row => row._displayEvent).filter(Boolean))]
+            .sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' }));
+
+        eventSelect.innerHTML = '<option value="">Tous les évènements</option>';
+        events.forEach(ev => {
+            const option = document.createElement('option');
+            option.value = ev;
+            option.textContent = ev;
+            eventSelect.appendChild(option);
+        });
+
+        if (events.includes(selectedEvent)) {
+            eventSelect.value = selectedEvent;
+        } else {
+            eventSelect.value = '';
         }
     }
 
     applyFilters() {
         const villeFilter = document.getElementById('filterVille').value;
-        const eventFilter = document.getElementById('filterEvent').value;
+        const eventSelect = document.getElementById('filterEvent');
+        this.populateEventOptions(villeFilter, eventSelect.value);
+        const eventFilter = eventSelect.value;
         const dateStartFilter = document.getElementById('filterDateStart').value;
         const dateEndFilter = document.getElementById('filterDateEnd').value;
 
-        this.filteredData = this.data.filter(row => {
+        this.filteredData = this.sortRowsByDate(this.data.filter(row => {
             let match = true;
 
             if (villeFilter && row['Ville'] !== villeFilter) {
@@ -605,7 +653,7 @@ class AirtableDashboard {
             }
 
             return match;
-        });
+        }));
 
         let sumOr = 0, sumPlatinium = 0, sumArgent = 0;
         let sumQuotaOr = 0, sumQuotaPlatinium = 0, sumQuotaArgent = 0;
@@ -645,6 +693,23 @@ class AirtableDashboard {
         this.renderTableBody();
     }
 
+    updateLastUpdateDisplay() {
+        const lastUpdateEl = document.getElementById('lastUpdate');
+        if (!lastUpdateEl) return;
+
+        if (!this.lastDataUpdate || Number.isNaN(this.lastDataUpdate.getTime())) {
+            lastUpdateEl.textContent = '';
+            return;
+        }
+
+        const formatter = new Intl.DateTimeFormat('fr-FR', {
+            dateStyle: 'short',
+            timeStyle: 'medium'
+        });
+
+        lastUpdateEl.textContent = `Dernière mise à jour : ${formatter.format(this.lastDataUpdate)}`;
+    }
+
     formatNumber(value) {
         if (value === null || value === undefined) return '-';
         return new Intl.NumberFormat('fr-FR').format(value);
@@ -666,30 +731,42 @@ class AirtableDashboard {
         const btn = document.getElementById('triggerRecoveryBtn');
         const originalText = btn.textContent;
 
-        if (!confirm('Voulez-vous lancer la récupération des données ?\n\nAttention : Ce processus dure environ 2 heures.')) return;
+        if (!confirm('Voulez-vous lancer la récupération des données ?\n\nAttention : Ce processus dure environ 10 minutes.')) return;
 
         btn.disabled = true;
-        btn.textContent = 'Recuperation...';
+        btn.textContent = 'Récupération...';
 
         try {
             const response = await fetch('/api/trigger-recovery', {
                 method: 'POST'
             });
+            const result = await response.json().catch(() => ({}));
 
             if (!response.ok) {
-                const err = await response.json().catch(() => ({}));
-                throw new Error(err.error || 'Echec de la recuperation');
+                const detailMessage = Array.isArray(result.details)
+                    ? result.details
+                        .map(detail => `${detail.source} (${detail.method || 'POST'}): ${detail.status || 'erreur'}${detail.body ? ` - ${detail.body}` : ''}`)
+                        .join(' | ')
+                    : result.details;
+                throw new Error(detailMessage || result.error || 'Echec de la recuperation');
             }
 
-            alert('Recuperation lancee avec succes ! Les donnees seront mises a jour dans environ 2 heures.');
-            // Rafraîchir les données après un court délai
-            setTimeout(() => this.loadData(true), 3000);
+            alert('Récupération lancée avec succès. Les données seront mises à jour dans environ 10 minutes.');
+
+            if (this.recoveryRefreshTimeout) {
+                clearTimeout(this.recoveryRefreshTimeout);
+            }
+
+            this.recoveryRefreshTimeout = setTimeout(() => {
+                this.loadData(true, true);
+                this.recoveryRefreshTimeout = null;
+            }, 10 * 60 * 1000);
         } catch (error) {
             console.error('Erreur récupération :', error);
             alert('Erreur: ' + error.message);
         } finally {
             btn.disabled = false;
-            btn.textContent = 'Recuperer';
+            btn.textContent = originalText;
         }
     }
 }
