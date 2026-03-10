@@ -1,8 +1,43 @@
+const fs = require('fs');
 const express = require('express');
 const path = require('path');
 const basicAuth = require('express-basic-auth');
 
+loadLocalEnv();
+
 const app = express();
+
+function loadLocalEnv() {
+    const envPath = path.join(__dirname, '.env');
+    if (!fs.existsSync(envPath)) return;
+
+    const lines = fs.readFileSync(envPath, 'utf8').split(/\r?\n/);
+
+    for (const rawLine of lines) {
+        const line = rawLine.trim();
+        if (!line || line.startsWith('#')) continue;
+
+        const separatorIndex = line.indexOf('=');
+        if (separatorIndex === -1) continue;
+
+        const key = line.slice(0, separatorIndex).trim();
+        if (!key) continue;
+
+        let value = line.slice(separatorIndex + 1).trim();
+        if (
+            (value.startsWith('"') && value.endsWith('"')) ||
+            (value.startsWith("'") && value.endsWith("'"))
+        ) {
+            value = value.slice(1, -1);
+        }
+
+        if (process.env[key] !== undefined && process.env[key] !== value) {
+            console.warn(`[env] ${key} depuis .env remplace la valeur deja definie dans la session.`);
+        }
+
+        process.env[key] = value;
+    }
+}
 
 // Récupération du mot de passe depuis les variables d'environnement (par ex. sur Railway)
 const password = process.env.DASHBOARD_PASSWORD;
@@ -132,6 +167,13 @@ let dataCache = {
     ttl: 300000 // Cache standard de 5 minutes
 };
 
+function buildDataResponse(records) {
+    return {
+        records: records || [],
+        lastUpdate: dataCache.lastUpdate || null
+    };
+}
+
 // Champs cibles pour réduire la taille du payload et accélérer la réponse d'Airtable
 const TARGET_FIELDS = [
     'Date',
@@ -185,7 +227,7 @@ app.get('/api/data', async (req, res) => {
         // 1. Si nous avons du cache et qu'il est valide, nous le renvoyons immédiatement
         if (!force && dataCache.records && dataCache.lastUpdate > 0 && (now - dataCache.lastUpdate < dataCache.ttl)) {
             console.log('Service des données valides depuis le cache');
-            return res.json(dataCache.records);
+            return res.json(buildDataResponse(dataCache.records));
         }
 
         // 2. Si nous avons un cache obsolète ET qu'il n'a pas été explicitement invalidé (lastUpdate > 0), 
@@ -194,12 +236,12 @@ app.get('/api/data', async (req, res) => {
         if (!force && dataCache.records && dataCache.lastUpdate > 0 && !dataCache.isUpdating) {
             console.log('Service des données obsolètes, rafraîchissement en arrière-plan déclenché...');
             refreshDataInBackground(); // Démarrer le rafraîchissement sans l'attendre
-            return res.json(dataCache.records);
+            return res.json(buildDataResponse(dataCache.records));
         }
 
         // 3. S'il n'y a pas de cache ou si le rafraîchissement est forcé, nous devons attendre les données fraîches
         const freshData = await refreshDataInBackground();
-        res.json(freshData);
+        res.json(buildDataResponse(freshData));
 
     } catch (error) {
         console.error('Erreur proxy données:', error);
@@ -360,39 +402,94 @@ app.post('/api/trigger-restore', async (req, res) => {
 // Proxy pour déclencher la récupération (POST) - double connexion n8n (Fever & Regiondo)
 app.post('/api/trigger-recovery', async (req, res) => {
     try {
-        const webhookFever = 'https://n8n.srv1189694.hstgr.cloud/webhook/gestion-billetterie-actualiser-donnees-fever';
-        const webhookRegiondo = 'https://n8n.srv1189694.hstgr.cloud/webhook/gestion-billetterie-actualiser-donnees-regiondo';
+        const requestedAt = new Date().toISOString();
+        const webhookTargets = [
+            {
+                source: 'fever',
+                url: process.env.N8N_RECOVERY_FEVER_WEBHOOK_URL || 'https://n8n.srv1189694.hstgr.cloud/webhook/gestion-billetterie-actualiser-donnees-fever',
+                method: (process.env.N8N_RECOVERY_FEVER_WEBHOOK_METHOD || 'POST').toUpperCase()
+            },
+            {
+                source: 'regiondo',
+                url: process.env.N8N_RECOVERY_REGIONDO_WEBHOOK_URL || 'https://n8n.srv1189694.hstgr.cloud/webhook/gestion-billetterie-actualiser-donnees-regiondo',
+                method: (process.env.N8N_RECOVERY_REGIONDO_WEBHOOK_METHOD || 'POST').toUpperCase()
+            }
+        ];
 
         console.log(`Déclenchement de la récupération double des données via n8n (Fever & Regiondo)...`);
 
-        const [responseFever, responseRegiondo] = await Promise.all([
-            fetch(webhookFever, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'recovery', source: 'fever', timestamp: new Date().toISOString() })
-            }),
-            fetch(webhookRegiondo, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'recovery', source: 'regiondo', timestamp: new Date().toISOString() })
-            })
-        ]);
+        const webhookResults = await Promise.allSettled(
+            webhookTargets.map(async ({ source, url, method }) => {
+                const payload = {
+                    action: 'recovery',
+                    source,
+                    timestamp: requestedAt
+                };
 
-        if (!responseFever.ok || !responseRegiondo.ok) {
-            console.error(`Erreur récupération n8n : Fever=${responseFever.status}, Regiondo=${responseRegiondo.status}`);
+                const requestConfig = {
+                    method,
+                    headers: {
+                        'Accept': 'application/json, text/plain, */*'
+                    }
+                };
+
+                let requestUrl = url;
+                if (method === 'GET') {
+                    const urlWithParams = new URL(url);
+                    Object.entries(payload).forEach(([key, value]) => urlWithParams.searchParams.set(key, value));
+                    requestUrl = urlWithParams.toString();
+                } else {
+                    requestConfig.headers['Content-Type'] = 'application/json';
+                    requestConfig.body = JSON.stringify(payload);
+                }
+
+                const response = await fetch(requestUrl, requestConfig);
+
+                const responseText = await response.text().catch(() => '');
+
+                return {
+                    source,
+                    url,
+                    method,
+                    ok: response.ok,
+                    status: response.status,
+                    body: responseText
+                };
+            })
+        );
+
+        const normalizedResults = webhookResults.map((result, index) => {
+            const source = webhookTargets[index].source;
+            if (result.status === 'fulfilled') {
+                return result.value;
+            }
+
+            return {
+                source,
+                ok: false,
+                status: 0,
+                body: result.reason?.message || 'Erreur réseau'
+            };
+        });
+
+        const failedResults = normalizedResults.filter(result => !result.ok);
+        if (failedResults.length > 0) {
+            console.error('Erreur récupération n8n :', JSON.stringify(normalizedResults));
             return res.status(500).json({
                 error: 'Erreur récupération n8n',
-                details: {
-                    fever: responseFever.status,
-                    regiondo: responseRegiondo.status
-                }
+                details: normalizedResults
             });
         }
 
         // Invalider le cache car de nouvelles données sont en cours de récupération
         dataCache.lastUpdate = 0;
 
-        res.json({ status: 'success', details: 'Double récupération déclenchée' });
+        res.json({
+            status: 'success',
+            details: 'Double récupération déclenchée',
+            requestedAt,
+            webhooks: normalizedResults
+        });
     } catch (error) {
         console.error('Erreur proxy déclenchement récupération:', error);
         res.status(500).json({ error: error.message || 'Erreur Interne du Serveur' });
