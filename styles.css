@@ -224,14 +224,14 @@ table {
     border-spacing: 0;
     width: 100%;
     font-size: 0.85rem;
+    position: relative;
+    isolation: isolate;
 }
 
 thead {
     position: relative;
     z-index: 35;
     background: white;
-    will-change: transform;
-    /* Accélération matérielle */
 }
 
 th {
@@ -244,11 +244,13 @@ th {
     padding: 8px;
     background: #f8fafc;
     vertical-align: middle;
+    background-clip: padding-box;
 }
 
 /* Niveaux d'en-tête (ajustements spécifiques) */
 .header-level-1 th {
     top: 0;
+    height: var(--sticky-header-row-1);
     min-height: var(--sticky-header-row-1);
     z-index: 40;
     background: #f1f5f9;
@@ -261,6 +263,7 @@ th {
 
 .header-level-2 th {
     top: var(--sticky-header-row-1);
+    height: var(--sticky-header-row-2);
     min-height: var(--sticky-header-row-2);
     z-index: 39;
     font-size: 0.75rem;
@@ -269,6 +272,7 @@ th {
 
 .header-level-3 th {
     top: calc(var(--sticky-header-row-1) + var(--sticky-header-row-2));
+    height: var(--sticky-header-row-3);
     min-height: var(--sticky-header-row-3);
     z-index: 38;
     font-weight: 500;
@@ -287,26 +291,26 @@ th {
     color: black;
 }
 
+.header-level-1 .th-main[rowspan="3"] {
+    height: var(--sticky-header-total);
+    min-height: var(--sticky-header-total);
+}
+
 .th-sticky {
     position: sticky;
     left: 0;
     z-index: 50 !important;
     background: #d0d0d0 !important;
     border-right: 1px solid #000;
-    will-change: transform;
-    overflow: visible;
+    overflow: hidden;
+    box-shadow:
+        1px 0 0 #000,
+        8px 0 14px -10px rgba(15, 23, 42, 0.35);
 }
 
-/* Mur opaque à droite de chaque cellule sticky du header, couvre tout artefact */
+/* Le séparateur est géré par box-shadow pour éviter les "jours" pendant le scroll */
 .th-sticky::after {
-    content: '';
-    position: absolute;
-    top: -1px;
-    bottom: -1px;
-    right: -2px;
-    width: 2px;
-    background: #d0d0d0;
-    pointer-events: none;
+    display: none;
 }
 
 /* Offsets déplacés plus bas pour l'ordre de priorité */
@@ -406,6 +410,8 @@ tbody td {
     font-size: 13px;
     color: var(--text-primary);
     font-weight: bold;
+    position: relative;
+    background-clip: padding-box;
 }
 
 /* Colonnes Fixes (Sticky) */
@@ -415,19 +421,14 @@ tbody td {
     background: white;
     z-index: 10;
     border-right: 1px solid #000;
-    will-change: transform;
+    box-shadow:
+        1px 0 0 #000,
+        8px 0 14px -10px rgba(15, 23, 42, 0.28);
 }
 
-/* Mur opaque à droite de chaque cellule sticky du body */
+/* Le séparateur est géré par box-shadow pour éviter les "jours" pendant le scroll */
 .td-sticky::after {
-    content: '';
-    position: absolute;
-    top: -1px;
-    bottom: -1px;
-    right: -2px;
-    width: 2px;
-    background: inherit;
-    pointer-events: none;
+    display: none;
 }
 
 .td-date,
@@ -456,16 +457,20 @@ tbody td {
 
 /* Ombre de séparation nette sur la dernière colonne sticky (Ville) */
 .th-sticky-ville {
-    box-shadow: 4px 0 8px -3px rgba(15, 23, 42, 0.35);
+    box-shadow:
+        1px 0 0 #000,
+        12px 0 18px -12px rgba(15, 23, 42, 0.42);
 }
 
-/* Mur opaque plus large sur la dernière colonne sticky (Ville) */
+/* Hérité du box-shadow ci-dessus */
 .th-sticky-ville::after {
-    width: 3px;
+    display: none;
 }
 
 .td-sticky-ville {
-    box-shadow: 4px 0 8px -3px rgba(15, 23, 42, 0.25);
+    box-shadow:
+        1px 0 0 #000,
+        12px 0 18px -12px rgba(15, 23, 42, 0.34);
 }
 
 tbody tr:nth-child(even) .td-sticky,
@@ -475,7 +480,9 @@ tbody tr:nth-child(even) .td-sticky-event {
 }
 
 tbody tr:nth-child(even) .td-sticky-ville {
-    box-shadow: 4px 0 8px -3px rgba(15, 23, 42, 0.25);
+    box-shadow:
+        1px 0 0 #000,
+        12px 0 18px -12px rgba(15, 23, 42, 0.34);
 }
 
 /* Déjà géré par les règles groupées ci-dessus */
@@ -485,7 +492,9 @@ tbody tr:nth-child(even) .td-sticky-ville {
     left: 210px !important;
     /* Largeur Date (90) + Largeur Ville (120) */
     /* Ajouter une ombre de bordure droite subtile pour séparer les colonnes fixes du contenu défilant */
-    box-shadow: 2px 0 4px -2px rgba(0, 0, 0, 0.1);
+    box-shadow:
+        1px 0 0 #000,
+        8px 0 14px -10px rgba(15, 23, 42, 0.2);
 }
 
 .td-date {
