@@ -277,7 +277,7 @@ th {
     border-bottom: 2px solid var(--border-color);
 }
 
-.header-level-1 .th-main,
+.header-level-1 .th-main:not(.th-sticky),
 .header-level-3 th {
     box-shadow: inset 0 -1px 0 rgba(15, 23, 42, 0.14);
 }
@@ -291,10 +291,22 @@ th {
     position: sticky;
     left: 0;
     z-index: 50 !important;
-    background-color: #ffffff !important; /* Force le fond blanc pour cacher les éléments qui défilent derrière */
+    background: #d0d0d0 !important;
     border-right: 1px solid #000;
     will-change: transform;
-    /* Hardware acceleration */
+    overflow: visible;
+}
+
+/* Mur opaque à droite de chaque cellule sticky du header, couvre tout artefact */
+.th-sticky::after {
+    content: '';
+    position: absolute;
+    top: -1px;
+    bottom: -1px;
+    right: -2px;
+    width: 2px;
+    background: #d0d0d0;
+    pointer-events: none;
 }
 
 /* Offsets déplacés plus bas pour l'ordre de priorité */
@@ -401,10 +413,21 @@ tbody td {
     position: sticky;
     left: 0;
     background: white;
-    z-index: 5;
+    z-index: 10;
     border-right: 1px solid #000;
     will-change: transform;
-    /* Accélération matérielle */
+}
+
+/* Mur opaque à droite de chaque cellule sticky du body */
+.td-sticky::after {
+    content: '';
+    position: absolute;
+    top: -1px;
+    bottom: -1px;
+    right: -2px;
+    width: 2px;
+    background: inherit;
+    pointer-events: none;
 }
 
 .td-date,
@@ -429,15 +452,30 @@ tbody td {
 .th-sticky-ville,
 .td-sticky-ville {
     left: 90px !important;
-    /* Force l'offset par rapport au left:0 général */
-    box-shadow: 2px 0 6px -3px rgba(15, 23, 42, 0.28);
+}
+
+/* Ombre de séparation nette sur la dernière colonne sticky (Ville) */
+.th-sticky-ville {
+    box-shadow: 4px 0 8px -3px rgba(15, 23, 42, 0.35);
+}
+
+/* Mur opaque plus large sur la dernière colonne sticky (Ville) */
+.th-sticky-ville::after {
+    width: 3px;
+}
+
+.td-sticky-ville {
+    box-shadow: 4px 0 8px -3px rgba(15, 23, 42, 0.25);
 }
 
 tbody tr:nth-child(even) .td-sticky,
 tbody tr:nth-child(even) .td-sticky-ville,
 tbody tr:nth-child(even) .td-sticky-event {
     background: #dfe7f1;
-    /* Correspondance rayure de ligne */
+}
+
+tbody tr:nth-child(even) .td-sticky-ville {
+    box-shadow: 4px 0 8px -3px rgba(15, 23, 42, 0.25);
 }
 
 /* Déjà géré par les règles groupées ci-dessus */
