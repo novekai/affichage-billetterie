@@ -394,10 +394,6 @@ tbody tr:nth-child(even) {
     background-color: #dfe7f1;
 }
 
-tbody tr:hover {
-    background-color: #d3deea;
-}
-
 tbody td {
     padding: 8px 10px;
     text-align: center;
@@ -451,13 +447,6 @@ tbody tr:nth-child(even) .td-sticky-event {
     /* Correspondance rayure de ligne */
 }
 
-tbody tr:hover .td-sticky,
-tbody tr:hover .td-sticky-ville,
-tbody tr:hover .td-sticky-event {
-    background: #d3deea;
-    /* Correspondance survol */
-}
-
 /* Déjà géré par les règles groupées ci-dessus */
 
 .th-sticky-event,
@@ -506,10 +495,6 @@ tbody tr:hover .td-sticky-event {
 
 tbody tr:nth-child(even) td:not(.td-remplissage) {
     background-color: #dfe7f1;
-}
-
-tbody tr:hover td:not(.td-remplissage) {
-    background-color: #d3deea;
 }
 
 /* Raffinement de la Barre Delta */
