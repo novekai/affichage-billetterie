@@ -5,7 +5,8 @@ class AirtableDashboard {
         this.isEditing = false;
         this.isLoading = false;
         this.lastDataUpdate = null;
-        this.recoveryRefreshTimeout = null;
+        this.syncStatusInterval = null;
+        this.isCheckingSyncStatus = false;
         this.init();
     }
 
@@ -13,12 +14,10 @@ class AirtableDashboard {
         this.bindEvents();
         await this.loadData();
 
-        // Rafraîchissement automatique toutes les 30 secondes (mode silencieux), uniquement si pas en cours d'édition
-        if (this.refreshInterval) clearInterval(this.refreshInterval);
-        this.refreshInterval = setInterval(() => {
-            if (!this.isEditing) {
-                this.loadData(true);
-            }
+        // Poll léger sur le statut de synchro; le tableau ne se recharge que si last_sync_at change.
+        if (this.syncStatusInterval) clearInterval(this.syncStatusInterval);
+        this.syncStatusInterval = setInterval(() => {
+            this.pollSyncStatus();
         }, 30000);
 
         window.dashboard = this; // Rendre accessible pour les boutons
@@ -216,7 +215,7 @@ class AirtableDashboard {
 
         try {
             const payload = await this.fetchAirtableData(force);
-            this.lastDataUpdate = payload.lastUpdate ? new Date(payload.lastUpdate) : null;
+            this.lastDataUpdate = this.parseSyncDate(payload.lastSyncAt || payload.lastUpdate);
             this.data = this.sortRowsByDate(this.transformData(payload.records));
             this.filteredData = [...this.data];
             this.populateFilters();
@@ -250,14 +249,28 @@ class AirtableDashboard {
         if (Array.isArray(payload)) {
             return {
                 records: payload,
-                lastUpdate: null
+                lastUpdate: null,
+                lastSyncAt: null
             };
         }
 
         return {
             records: Array.isArray(payload.records) ? payload.records : [],
-            lastUpdate: payload.lastUpdate || null
+            lastUpdate: payload.lastUpdate || null,
+            lastSyncAt: payload.lastSyncAt || null
         };
+    }
+
+    async fetchSyncStatus(force = false) {
+        const url = force ? '/api/sync-status?force=true' : '/api/sync-status';
+        const response = await fetch(url);
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || `Erreur sync-status: ${response.status}`);
+        }
+
+        return response.json();
     }
 
     transformData(records) {
@@ -296,6 +309,82 @@ class AirtableDashboard {
 
         const isoDate = new Date(dateStr);
         return isNaN(isoDate.getTime()) ? null : isoDate;
+    }
+
+    parseSyncDate(value) {
+        if (!value) return null;
+
+        const isoDate = new Date(value);
+        if (!Number.isNaN(isoDate.getTime())) {
+            return isoDate;
+        }
+
+        const usMeridiemMatch = String(value).match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})(am|pm)$/i);
+        if (usMeridiemMatch) {
+            const month = parseInt(usMeridiemMatch[1], 10) - 1;
+            const day = parseInt(usMeridiemMatch[2], 10);
+            const year = parseInt(usMeridiemMatch[3], 10);
+            let hour = parseInt(usMeridiemMatch[4], 10);
+            const minute = parseInt(usMeridiemMatch[5], 10);
+            const meridiem = usMeridiemMatch[6].toLowerCase();
+
+            if (meridiem === 'pm' && hour < 12) hour += 12;
+            if (meridiem === 'am' && hour === 12) hour = 0;
+
+            return new Date(year, month, day, hour, minute);
+        }
+
+        const frDateTimeMatch = String(value).match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})$/);
+        if (frDateTimeMatch) {
+            const day = parseInt(frDateTimeMatch[1], 10);
+            const month = parseInt(frDateTimeMatch[2], 10) - 1;
+            const year = parseInt(frDateTimeMatch[3], 10);
+            const hour = parseInt(frDateTimeMatch[4], 10);
+            const minute = parseInt(frDateTimeMatch[5], 10);
+
+            return new Date(year, month, day, hour, minute);
+        }
+
+        return null;
+    }
+
+    hasSyncDateChanged(nextSyncDate) {
+        if (!this.lastDataUpdate || !nextSyncDate) {
+            return false;
+        }
+
+        return this.lastDataUpdate.getTime() !== nextSyncDate.getTime();
+    }
+
+    async pollSyncStatus(force = false) {
+        if (this.isCheckingSyncStatus || this.isEditing) return;
+
+        this.isCheckingSyncStatus = true;
+
+        try {
+            const payload = await this.fetchSyncStatus(force);
+            const nextSyncDate = this.parseSyncDate(payload.lastSyncAt);
+            const syncDateChanged = this.hasSyncDateChanged(nextSyncDate);
+            const shouldRefreshDisplay = (
+                (!this.lastDataUpdate && nextSyncDate) ||
+                (this.lastDataUpdate && !nextSyncDate) ||
+                syncDateChanged
+            );
+
+            this.lastDataUpdate = nextSyncDate;
+
+            if (shouldRefreshDisplay) {
+                this.updateLastUpdateDisplay();
+            }
+
+            if (syncDateChanged) {
+                await this.loadData(true, true);
+            }
+        } catch (error) {
+            console.error('Erreur de lecture du statut de synchronisation:', error);
+        } finally {
+            this.isCheckingSyncStatus = false;
+        }
     }
 
     sortRowsByDate(rows) {
@@ -779,16 +868,8 @@ class AirtableDashboard {
                 throw new Error(detailMessage || result.error || 'Echec de l\'actualisation des ventes');
             }
 
-            alert('Actualisation lancée avec succès. Les données seront mises à jour dans environ 10 minutes.');
-
-            if (this.recoveryRefreshTimeout) {
-                clearTimeout(this.recoveryRefreshTimeout);
-            }
-
-            this.recoveryRefreshTimeout = setTimeout(() => {
-                this.loadData(true, true);
-                this.recoveryRefreshTimeout = null;
-            }, 10 * 60 * 1000);
+            alert('Actualisation lancée avec succès. Le tableau se rechargera automatiquement dès que last_sync_at sera mis à jour.');
+            await this.pollSyncStatus(true);
         } catch (error) {
             console.error('Erreur actualisation des ventes :', error);
             alert('Erreur: ' + error.message);

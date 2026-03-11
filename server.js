@@ -54,11 +54,19 @@ app.use(basicAuth({
 
 
 const PORT = process.env.PORT || 3000;
+const AIRTABLE_BASE_ID = process.env.AIRTABLE_BASE_ID || '';
+const AIRTABLE_API_KEY = process.env.AIRTABLE_API_KEY || '';
+const AIRTABLE_TABLE_NAME = process.env.AIRTABLE_TABLE_NAME || 'Allocation billetterie';
+const AIRTABLE_VIEW_NAME = process.env.AIRTABLE_VIEW_NAME || 'Grid view';
+const AIRTABLE_TECHNICAL_TABLE_NAME = process.env.AIRTABLE_TECHNICAL_TABLE_NAME || 'Technical base';
+const AIRTABLE_TECHNICAL_PARAM_FIELD = process.env.AIRTABLE_TECHNICAL_PARAM_FIELD || 'Param';
+const AIRTABLE_TECHNICAL_VALUE_FIELD = process.env.AIRTABLE_TECHNICAL_VALUE_FIELD || 'Value';
+const AIRTABLE_TECHNICAL_LAST_SYNC_PARAM = process.env.AIRTABLE_TECHNICAL_LAST_SYNC_PARAM || 'last_sync_at';
 
 app.get('/config.js', (req, res) => {
-    const apiKey = process.env.AIRTABLE_API_KEY || '';
-    const baseId = process.env.AIRTABLE_BASE_ID || '';
-    const tableName = process.env.AIRTABLE_TABLE_NAME || 'Allocation billetterie';
+    const apiKey = AIRTABLE_API_KEY;
+    const baseId = AIRTABLE_BASE_ID;
+    const tableName = AIRTABLE_TABLE_NAME;
 
     const config = `
 const AIRTABLE_CONFIG = {
@@ -167,11 +175,105 @@ let dataCache = {
     ttl: 300000 // Cache standard de 5 minutes
 };
 
-function buildDataResponse(records) {
+let syncStatusCache = {
+    lastSyncAt: null,
+    fetchedAt: 0,
+    hasLoaded: false,
+    ttl: 30000,
+    promise: null
+};
+
+function buildDataResponse(records, lastSyncAt) {
     return {
         records: records || [],
-        lastUpdate: dataCache.lastUpdate || null
+        lastUpdate: lastSyncAt || null,
+        lastSyncAt: lastSyncAt || null,
+        cacheUpdatedAt: dataCache.lastUpdate || null
     };
+}
+
+function buildAirtableHeaders() {
+    return {
+        'Authorization': `Bearer ${AIRTABLE_API_KEY}`,
+        'Content-Type': 'application/json'
+    };
+}
+
+function normalizeSyncValue(value) {
+    if (value === null || value === undefined || value === '') {
+        return null;
+    }
+
+    const parsedDate = new Date(value);
+    if (!Number.isNaN(parsedDate.getTime())) {
+        return parsedDate.toISOString();
+    }
+
+    return String(value);
+}
+
+async function fetchLastSyncAt(force = false) {
+    const now = Date.now();
+
+    if (syncStatusCache.promise) {
+        return syncStatusCache.promise;
+    }
+
+    if (!force && syncStatusCache.hasLoaded && (now - syncStatusCache.fetchedAt < syncStatusCache.ttl)) {
+        return syncStatusCache.lastSyncAt;
+    }
+
+    syncStatusCache.promise = (async () => {
+        if (!AIRTABLE_API_KEY || !AIRTABLE_BASE_ID) {
+            throw new Error('Missing credentials (API Key or Base ID)');
+        }
+
+        const params = new URLSearchParams();
+        params.append('view', AIRTABLE_VIEW_NAME);
+        params.append('maxRecords', '1');
+        params.append('fields[]', AIRTABLE_TECHNICAL_PARAM_FIELD);
+        params.append('fields[]', AIRTABLE_TECHNICAL_VALUE_FIELD);
+        params.append(
+            'filterByFormula',
+            `{${AIRTABLE_TECHNICAL_PARAM_FIELD}}="${AIRTABLE_TECHNICAL_LAST_SYNC_PARAM}"`
+        );
+
+        const url = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${encodeURIComponent(AIRTABLE_TECHNICAL_TABLE_NAME)}?${params.toString()}`;
+        const response = await fetch(url, {
+            headers: buildAirtableHeaders()
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Airtable technical base error (${response.status}): ${errorText}`);
+        }
+
+        const data = await response.json();
+        const record = data.records?.[0];
+        const rawValue = record?.fields?.[AIRTABLE_TECHNICAL_VALUE_FIELD] ?? null;
+        const normalizedValue = normalizeSyncValue(rawValue);
+
+        syncStatusCache.lastSyncAt = normalizedValue;
+        syncStatusCache.fetchedAt = Date.now();
+        syncStatusCache.hasLoaded = true;
+
+        return normalizedValue;
+    })();
+
+    try {
+        return await syncStatusCache.promise;
+    } finally {
+        syncStatusCache.promise = null;
+    }
+}
+
+async function safeFetchLastSyncAt(force = false) {
+    try {
+        return await fetchLastSyncAt(force);
+    } catch (error) {
+        console.error('[Technical base] Impossible de lire last_sync_at:', error.message);
+        return syncStatusCache.hasLoaded ? syncStatusCache.lastSyncAt : null;
+    }
 }
 
 // Champs cibles pour réduire la taille du payload et accélérer la réponse d'Airtable
@@ -223,11 +325,12 @@ app.get('/api/data', async (req, res) => {
     try {
         const now = Date.now();
         const force = req.query.force === 'true';
+        const lastSyncAtPromise = safeFetchLastSyncAt(force);
 
         // 1. Si nous avons du cache et qu'il est valide, nous le renvoyons immédiatement
         if (!force && dataCache.records && dataCache.lastUpdate > 0 && (now - dataCache.lastUpdate < dataCache.ttl)) {
             console.log('Service des données valides depuis le cache');
-            return res.json(buildDataResponse(dataCache.records));
+            return res.json(buildDataResponse(dataCache.records, await lastSyncAtPromise));
         }
 
         // 2. Si nous avons un cache obsolète ET qu'il n'a pas été explicitement invalidé (lastUpdate > 0), 
@@ -236,16 +339,30 @@ app.get('/api/data', async (req, res) => {
         if (!force && dataCache.records && dataCache.lastUpdate > 0 && !dataCache.isUpdating) {
             console.log('Service des données obsolètes, rafraîchissement en arrière-plan déclenché...');
             refreshDataInBackground(); // Démarrer le rafraîchissement sans l'attendre
-            return res.json(buildDataResponse(dataCache.records));
+            return res.json(buildDataResponse(dataCache.records, await lastSyncAtPromise));
         }
 
         // 3. S'il n'y a pas de cache ou si le rafraîchissement est forcé, nous devons attendre les données fraîches
-        const freshData = await refreshDataInBackground();
-        res.json(buildDataResponse(freshData));
+        const [freshData, lastSyncAt] = await Promise.all([
+            refreshDataInBackground(),
+            lastSyncAtPromise
+        ]);
+        res.json(buildDataResponse(freshData, lastSyncAt));
 
     } catch (error) {
         console.error('Erreur proxy données:', error);
         res.status(500).json({ error: error.message });
+    }
+});
+
+app.get('/api/sync-status', async (req, res) => {
+    try {
+        const force = req.query.force === 'true';
+        const lastSyncAt = await fetchLastSyncAt(force);
+        res.json({ lastSyncAt });
+    } catch (error) {
+        console.error('Erreur proxy sync-status:', error);
+        res.status(500).json({ error: error.message || 'Erreur Interne du Serveur' });
     }
 });
 
@@ -257,9 +374,9 @@ async function refreshDataInBackground() {
 
     dataCache.isUpdating = true;
     try {
-        const apiKey = process.env.AIRTABLE_API_KEY || '';
-        const baseId = process.env.AIRTABLE_BASE_ID || '';
-        const tableName = process.env.AIRTABLE_TABLE_NAME || 'Allocation billetterie';
+        const apiKey = AIRTABLE_API_KEY;
+        const baseId = AIRTABLE_BASE_ID;
+        const tableName = AIRTABLE_TABLE_NAME;
 
         if (!apiKey || !baseId) throw new Error('Missing credentials (API Key or Base ID)');
 
@@ -273,16 +390,13 @@ async function refreshDataInBackground() {
         do {
             const params = new URLSearchParams();
             if (offset) params.append('offset', offset);
-            params.append('view', 'Grid view');
+            params.append('view', AIRTABLE_VIEW_NAME);
 
             // Speed optimization: Only ask for specific fields
             TARGET_FIELDS.forEach(f => params.append('fields[]', f));
 
             const response = await fetch(`${baseUrl}?${params.toString()}`, {
-                headers: {
-                    'Authorization': `Bearer ${apiKey}`,
-                    'Content-Type': 'application/json'
-                }
+                headers: buildAirtableHeaders()
             });
 
             if (!response.ok) {
@@ -314,8 +428,8 @@ async function refreshDataInBackground() {
 // Proxy pour lister les sauvegardes de la table Airtable "Backup Data"
 app.get('/api/list-backups', async (req, res) => {
     try {
-        const apiKey = process.env.AIRTABLE_API_KEY || '';
-        const baseId = process.env.AIRTABLE_BASE_ID || '';
+        const apiKey = AIRTABLE_API_KEY;
+        const baseId = AIRTABLE_BASE_ID;
         const tableName = 'Backup Data';
 
         if (!apiKey || !baseId) {
@@ -325,10 +439,7 @@ app.get('/api/list-backups', async (req, res) => {
         const url = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}?sort%5B0%5D%5Bfield%5D=Date&sort%5B0%5D%5Bdirection%5D=desc&maxRecords=20`;
 
         const response = await fetch(url, {
-            headers: {
-                'Authorization': `Bearer ${apiKey}`,
-                'Content-Type': 'application/json'
-            }
+            headers: buildAirtableHeaders()
         });
 
         if (!response.ok) {
@@ -401,6 +512,7 @@ app.post('/api/trigger-restore', async (req, res) => {
 
         // IMPORTANT : Effacer le cache des données car la table est en cours de restauration
         dataCache.lastUpdate = 0;
+        syncStatusCache.fetchedAt = 0;
 
         try {
             const result = responseText ? JSON.parse(responseText) : { status: 'success' };
@@ -498,6 +610,7 @@ app.post('/api/trigger-recovery', async (req, res) => {
 
         // Invalider le cache car de nouvelles données sont en cours de récupération
         dataCache.lastUpdate = 0;
+        syncStatusCache.fetchedAt = 0;
 
         res.json({
             status: 'success',
@@ -569,9 +682,9 @@ app.post('/api/save-snapshot', async (req, res) => {
 app.patch('/api/update-record', async (req, res) => {
     try {
         const { recordId, fieldName, value } = req.body;
-        const apiKey = process.env.AIRTABLE_API_KEY || '';
-        const baseId = process.env.AIRTABLE_BASE_ID || '';
-        const tableName = process.env.AIRTABLE_TABLE_NAME || 'Allocation billetterie';
+        const apiKey = AIRTABLE_API_KEY;
+        const baseId = AIRTABLE_BASE_ID;
+        const tableName = AIRTABLE_TABLE_NAME;
 
         console.log(`Demande de mise à jour : Record=${recordId}, Field="${fieldName}", Value=${value}`);
 
@@ -587,10 +700,7 @@ app.patch('/api/update-record', async (req, res) => {
 
         const response = await fetch(url, {
             method: 'PATCH',
-            headers: {
-                'Authorization': `Bearer ${apiKey}`,
-                'Content-Type': 'application/json'
-            },
+            headers: buildAirtableHeaders(),
             body: JSON.stringify({
                 fields: {
                     [fieldName]: value
