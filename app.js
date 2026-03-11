@@ -731,10 +731,10 @@ class AirtableDashboard {
         const btn = document.getElementById('triggerRecoveryBtn');
         const originalText = btn.textContent;
 
-        if (!confirm('Voulez-vous lancer la récupération des données ?\n\nAttention : Ce processus dure environ 10 minutes.')) return;
+        if (!confirm('Voulez-vous lancer l\'actualisation des ventes ?\n\nAttention : ce processus dure environ 10 minutes.')) return;
 
         btn.disabled = true;
-        btn.textContent = 'Récupération...';
+        btn.textContent = 'Actualisation...';
 
         try {
             const response = await fetch('/api/trigger-recovery', {
@@ -748,10 +748,10 @@ class AirtableDashboard {
                         .map(detail => `${detail.source} (${detail.method || 'POST'}): ${detail.status || 'erreur'}${detail.body ? ` - ${detail.body}` : ''}`)
                         .join(' | ')
                     : result.details;
-                throw new Error(detailMessage || result.error || 'Echec de la recuperation');
+                throw new Error(detailMessage || result.error || 'Echec de l\'actualisation des ventes');
             }
 
-            alert('Récupération lancée avec succès. Les données seront mises à jour dans environ 10 minutes.');
+            alert('Actualisation lancée avec succès. Les données seront mises à jour dans environ 10 minutes.');
 
             if (this.recoveryRefreshTimeout) {
                 clearTimeout(this.recoveryRefreshTimeout);
@@ -762,7 +762,7 @@ class AirtableDashboard {
                 this.recoveryRefreshTimeout = null;
             }, 10 * 60 * 1000);
         } catch (error) {
-            console.error('Erreur récupération :', error);
+            console.error('Erreur actualisation des ventes :', error);
             alert('Erreur: ' + error.message);
         } finally {
             btn.disabled = false;
