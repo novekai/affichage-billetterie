@@ -242,8 +242,7 @@ th {
     font-weight: bold;
     color: var(--text-primary);
     padding: 8px;
-    background: white;
-    background-clip: padding-box;
+    background: #f8fafc;
     vertical-align: middle;
 }
 
@@ -292,6 +291,7 @@ th {
     position: sticky;
     left: 0;
     z-index: 50 !important;
+    background-color: #ffffff !important; /* Force le fond blanc pour cacher les éléments qui défilent derrière */
     border-right: 1px solid #000;
     will-change: transform;
     /* Hardware acceleration */
