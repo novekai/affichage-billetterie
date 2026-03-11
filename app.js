@@ -45,6 +45,7 @@ class AirtableDashboard {
         document.getElementById('filterEvent').addEventListener('change', () => this.applyFilters());
         document.getElementById('filterDateStart').addEventListener('change', () => this.applyFilters());
         document.getElementById('filterDateEnd').addEventListener('change', () => this.applyFilters());
+        document.getElementById('resetFiltersBtn').addEventListener('click', () => this.resetFilters());
     }
 
     toggleSidebar(open) {
@@ -597,6 +598,33 @@ class AirtableDashboard {
         } else {
             eventSelect.value = '';
         }
+    }
+
+    resetFilters() {
+        const villeSelect = document.getElementById('filterVille');
+        const eventSelect = document.getElementById('filterEvent');
+        const dateStartInput = document.getElementById('filterDateStart');
+        const dateEndInput = document.getElementById('filterDateEnd');
+
+        if (villeSelect) {
+            villeSelect.value = '';
+        }
+
+        if (dateStartInput) {
+            dateStartInput.value = '';
+        }
+
+        if (dateEndInput) {
+            dateEndInput.value = '';
+        }
+
+        this.populateEventOptions('', '');
+
+        if (eventSelect) {
+            eventSelect.value = '';
+        }
+
+        this.applyFilters();
     }
 
     applyFilters() {

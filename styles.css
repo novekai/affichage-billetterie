@@ -99,6 +99,10 @@ body {
     align-items: center;
 }
 
+.filter-item-action {
+    justify-content: flex-end;
+}
+
 .filter-item label {
     font-size: 0.75rem;
     font-weight: 600;
