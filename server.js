@@ -364,35 +364,50 @@ app.post('/api/trigger-restore', async (req, res) => {
             return res.status(400).json({ error: 'recordId est requis' });
         }
 
-        const webhookUrl = 'https://n8n.srv1189694.hstgr.cloud/webhook/gestion-billetterie-restaure-backup';
-
-        const urlWithParams = `${webhookUrl}?recordId=${recordId}`;
+        const webhookUrl = process.env.N8N_RESTORE_WEBHOOK_URL || 'https://n8n.srv1189694.hstgr.cloud/webhook/gestion-billetterie-restaure-backup';
+        const webhookMethod = (process.env.N8N_RESTORE_WEBHOOK_METHOD || 'POST').toUpperCase();
+        const payload = { recordId };
 
         console.log(`Déclenchement de la restauration pour le RecordID: ${recordId}`);
 
-        const response = await fetch(urlWithParams, {
-            method: 'POST',
+        const requestConfig = {
+            method: webhookMethod,
             headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ recordId })
-        });
+                'Accept': 'application/json, text/plain, */*'
+            }
+        };
+
+        let requestUrl = webhookUrl;
+        if (webhookMethod === 'GET') {
+            const urlWithParams = new URL(webhookUrl);
+            Object.entries(payload).forEach(([key, value]) => urlWithParams.searchParams.set(key, value));
+            requestUrl = urlWithParams.toString();
+        } else {
+            requestConfig.headers['Content-Type'] = 'application/json';
+            requestConfig.body = JSON.stringify(payload);
+        }
+
+        const response = await fetch(requestUrl, requestConfig);
+        const responseText = await response.text().catch(() => '');
 
         if (!response.ok) {
-            const errorText = await response.text();
-            console.error(`Erreur restauration n8n (${response.status}):`, errorText);
+            console.error(`Erreur restauration n8n (${response.status}):`, responseText);
             return res.status(response.status).json({
                 error: 'Erreur de restauration n8n',
                 status: response.status,
-                details: errorText
+                details: responseText
             });
         }
 
         // IMPORTANT : Effacer le cache des données car la table est en cours de restauration
         dataCache.lastUpdate = 0;
 
-        const result = await response.text();
-        res.json({ status: 'success', details: result });
+        try {
+            const result = responseText ? JSON.parse(responseText) : { status: 'success' };
+            res.json(result);
+        } catch {
+            res.json({ status: 'success', details: responseText });
+        }
     } catch (error) {
         console.error('Erreur proxy déclenchement restauration:', error);
         res.status(500).json({ error: error.message || 'Erreur Interne du Serveur' });
