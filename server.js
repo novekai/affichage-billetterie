@@ -499,28 +499,51 @@ app.post('/api/trigger-recovery', async (req, res) => {
 // Proxy pour enregistrer un instantané (POST)
 app.post('/api/save-snapshot', async (req, res) => {
     try {
-        const webhookUrl = 'https://n8n.srv1189694.hstgr.cloud/webhook/gestion-billetterie-backup';
+        const webhookUrl = process.env.N8N_BACKUP_WEBHOOK_URL || 'https://n8n.srv1189694.hstgr.cloud/webhook/gestion-billetterie-backup';
+        const webhookMethod = (process.env.N8N_BACKUP_WEBHOOK_METHOD || 'POST').toUpperCase();
 
-        const response = await fetch(webhookUrl, {
-            method: 'POST',
+        const requestConfig = {
+            method: webhookMethod,
             headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(req.body)
-        });
+                'Accept': 'application/json, text/plain, */*'
+            }
+        };
+
+        let requestUrl = webhookUrl;
+        if (webhookMethod === 'GET') {
+            const urlWithParams = new URL(webhookUrl);
+            Object.entries(req.body || {}).forEach(([key, value]) => {
+                if (value !== undefined && value !== null) {
+                    urlWithParams.searchParams.set(key, String(value));
+                }
+            });
+            requestUrl = urlWithParams.toString();
+        } else {
+            requestConfig.headers['Content-Type'] = 'application/json';
+            requestConfig.body = JSON.stringify(req.body || {});
+        }
+
+        const response = await fetch(requestUrl, requestConfig);
+        const responseText = await response.text().catch(() => '');
 
         if (!response.ok) {
-            const errorText = await response.text();
-            console.error(`Erreur n8n (${response.status}):`, errorText);
+            console.error(`Erreur n8n (${response.status}):`, responseText);
             return res.status(response.status).json({
                 error: 'Erreur webhook n8n',
                 status: response.status,
-                details: errorText
+                details: responseText
             });
         }
 
-        const result = await response.json();
-        res.json(result);
+        try {
+            const result = responseText ? JSON.parse(responseText) : { status: 'success' };
+            res.json(result);
+        } catch {
+            res.json({
+                status: 'success',
+                details: responseText
+            });
+        }
     } catch (error) {
         console.error('Erreur proxy enregistrement instantané:', error);
         res.status(500).json({ error: error.message || 'Erreur Interne du Serveur' });
