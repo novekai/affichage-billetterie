@@ -526,7 +526,7 @@ app.post('/api/trigger-restore', async (req, res) => {
     }
 });
 
-// Proxy pour déclencher la récupération (POST) - double connexion n8n (Fever & Regiondo)
+// Proxy pour déclencher la récupération (POST) via n8n (Fever uniquement)
 app.post('/api/trigger-recovery', async (req, res) => {
     try {
         const requestedAt = new Date().toISOString();
@@ -535,15 +535,10 @@ app.post('/api/trigger-recovery', async (req, res) => {
                 source: 'fever',
                 url: process.env.N8N_RECOVERY_FEVER_WEBHOOK_URL || 'https://n8n.srv1189694.hstgr.cloud/webhook/gestion-billetterie-actualiser-donnees-fever',
                 method: (process.env.N8N_RECOVERY_FEVER_WEBHOOK_METHOD || 'POST').toUpperCase()
-            },
-            {
-                source: 'regiondo',
-                url: process.env.N8N_RECOVERY_REGIONDO_WEBHOOK_URL || 'https://n8n.srv1189694.hstgr.cloud/webhook/gestion-billetterie-actualiser-donnees-regiondo',
-                method: (process.env.N8N_RECOVERY_REGIONDO_WEBHOOK_METHOD || 'POST').toUpperCase()
             }
         ];
 
-        console.log(`Déclenchement de la récupération double des données via n8n (Fever & Regiondo)...`);
+        console.log('Déclenchement de la récupération des données via n8n (Fever)...');
 
         const webhookResults = await Promise.allSettled(
             webhookTargets.map(async ({ source, url, method }) => {
@@ -614,7 +609,7 @@ app.post('/api/trigger-recovery', async (req, res) => {
 
         res.json({
             status: 'success',
-            details: 'Double récupération déclenchée',
+            details: 'Récupération déclenchée',
             requestedAt,
             webhooks: normalizedResults
         });
