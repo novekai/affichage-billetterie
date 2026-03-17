@@ -498,13 +498,14 @@ class AirtableDashboard {
         const td = document.createElement('td');
         td.className = `td-percentage ${baseClass}`;
 
-        if (value === null || value === undefined) {
+        const percentage = this.normalizePercentageValue(value);
+
+        if (percentage === null) {
             td.textContent = '-';
             return td;
         }
 
-        const numValue = parseFloat(value);
-        td.textContent = numValue.toFixed(0) + '%';
+        td.textContent = percentage + '%';
 
         return td;
     }
@@ -615,18 +616,11 @@ class AirtableDashboard {
         const td = document.createElement('td');
         td.className = 'td-remplissage';
 
-        if (value === null || value === undefined || value === '') {
+        const percentage = this.normalizePercentageValue(value);
+
+        if (percentage === null) {
             td.textContent = '-';
             return td;
-        }
-
-        const numValue = parseFloat(value);
-        let percentage;
-
-        if (numValue <= 1) {
-            percentage = Math.round(numValue * 100);
-        } else {
-            percentage = Math.round(numValue);
         }
 
         td.textContent = percentage + '%';
@@ -643,6 +637,23 @@ class AirtableDashboard {
         }
 
         return td;
+    }
+
+    normalizePercentageValue(value) {
+        if (value === null || value === undefined || value === '') {
+            return null;
+        }
+
+        const numValue = parseFloat(value);
+        if (Number.isNaN(numValue)) {
+            return null;
+        }
+
+        if (numValue <= 1 && numValue >= -1) {
+            return Math.round(numValue * 100);
+        }
+
+        return Math.round(numValue);
     }
 
     populateFilters() {
@@ -881,14 +892,13 @@ class AirtableDashboard {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Vérifier par rapport aux emplacements réels dans config.js
-    if (AIRTABLE_CONFIG.API_KEY === 'VOTRE_CLE_API' || AIRTABLE_CONFIG.BASE_ID === 'VOTRE_BASE_ID') {
+    if (!AIRTABLE_CONFIG.HAS_SERVER_CONFIG) {
         const loadingDiv = document.getElementById('loading');
         if (loadingDiv) {
             loadingDiv.innerHTML = `
                 <div style="text-align: center; padding: 40px; background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">
                     <h2 style="color: #f59e0b; margin-bottom: 20px;">⚙️ Configuration requise</h2>
-                    <p style="color: #4b5563;">Veuillez configurer vos identifiants Airtable dans <code>config.js</code> ou utiliser les variables d'environnement.</p>
+                    <p style="color: #4b5563;">Veuillez configurer les variables d'environnement du serveur avant de lancer le tableau de bord.</p>
                 </div>
             `;
         }
