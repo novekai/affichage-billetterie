@@ -625,10 +625,10 @@ class AirtableDashboard {
 
         td.textContent = percentage + '%';
 
-        if (percentage >= 100) {
+        if (percentage >= 90) {
             td.style.backgroundColor = '#C6EFCE';
             td.style.color = '#006100';
-        } else if (percentage > 0) {
+        } else if (percentage >= 70) {
             td.style.backgroundColor = '#FFEB9C';
             td.style.color = '#9C5700';
         } else {
