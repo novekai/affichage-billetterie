@@ -6,6 +6,8 @@ const basicAuth = require('express-basic-auth');
 loadLocalEnv();
 
 const app = express();
+app.disable('x-powered-by');
+app.set('trust proxy', 1);
 
 function loadLocalEnv() {
     const envPath = path.join(__dirname, '.env');
@@ -39,21 +41,8 @@ function loadLocalEnv() {
     }
 }
 
-// Récupération du mot de passe depuis les variables d'environnement (par ex. sur Railway)
-const password = process.env.DASHBOARD_PASSWORD;
-
-if (!password) {
-    console.warn("ATTENTION : La variable d'environnement DASHBOARD_PASSWORD n'est pas définie. Un accès non sécurisé ou par défaut sera utilisé.");
-}
-
-app.use(basicAuth({
-    users: { 'admin': password || 'admin' }, // Mot de passe local par défaut si manquant
-    challenge: true,
-    realm: 'Tableau de bord de billetterie'
-}));
-
-
 const PORT = process.env.PORT || 3000;
+const HOST = process.env.HOST || '0.0.0.0';
 const AIRTABLE_BASE_ID = process.env.AIRTABLE_BASE_ID || '';
 const AIRTABLE_API_KEY = process.env.AIRTABLE_API_KEY || '';
 const AIRTABLE_TABLE_NAME = process.env.AIRTABLE_TABLE_NAME || 'Allocation billetterie';
@@ -62,17 +51,35 @@ const AIRTABLE_TECHNICAL_TABLE_NAME = process.env.AIRTABLE_TECHNICAL_TABLE_NAME 
 const AIRTABLE_TECHNICAL_PARAM_FIELD = process.env.AIRTABLE_TECHNICAL_PARAM_FIELD || 'Param';
 const AIRTABLE_TECHNICAL_VALUE_FIELD = process.env.AIRTABLE_TECHNICAL_VALUE_FIELD || 'Value';
 const AIRTABLE_TECHNICAL_LAST_SYNC_PARAM = process.env.AIRTABLE_TECHNICAL_LAST_SYNC_PARAM || 'last_sync_at';
+const hasAirtableConfig = Boolean(AIRTABLE_API_KEY && AIRTABLE_BASE_ID && AIRTABLE_TABLE_NAME);
+
+// Récupération du mot de passe depuis les variables d'environnement (par ex. sur Railway)
+const password = process.env.DASHBOARD_PASSWORD;
+
+if (!password) {
+    console.warn("ATTENTION : La variable d'environnement DASHBOARD_PASSWORD n'est pas définie. Un accès non sécurisé ou par défaut sera utilisé.");
+}
+
+app.get('/healthz', (_req, res) => {
+    res.status(200).json({
+        status: 'ok',
+        airtableConfigured: hasAirtableConfig
+    });
+});
+
+app.use(basicAuth({
+    users: { 'admin': password || 'admin' }, // Mot de passe local par défaut si manquant
+    challenge: true,
+    realm: 'Tableau de bord de billetterie'
+}));
 
 app.get('/config.js', (req, res) => {
-    const apiKey = AIRTABLE_API_KEY;
-    const baseId = AIRTABLE_BASE_ID;
-    const tableName = AIRTABLE_TABLE_NAME;
-
     const config = `
 const AIRTABLE_CONFIG = {
-    API_KEY: '${apiKey}',
-    BASE_ID: '${baseId}',
-    TABLE_NAME: '${tableName}'
+    API_KEY: '',
+    BASE_ID: '',
+    TABLE_NAME: ${JSON.stringify(AIRTABLE_TABLE_NAME)},
+    HAS_SERVER_CONFIG: ${hasAirtableConfig}
 };
 
 const COLUMN_CONFIG = {
@@ -162,6 +169,7 @@ const COLUMNS_ORDER = [
 ];
 `;
     res.setHeader('Content-Type', 'application/javascript');
+    res.setHeader('Cache-Control', 'no-store');
     res.send(config);
 });
 
@@ -728,6 +736,6 @@ app.patch('/api/update-record', async (req, res) => {
 
 app.use(express.static(path.join(__dirname)));
 
-app.listen(PORT, function () {
-    console.log('Serveur démarré sur le port ' + PORT);
+app.listen(PORT, HOST, function () {
+    console.log(`Serveur démarré sur ${HOST}:${PORT}`);
 });
